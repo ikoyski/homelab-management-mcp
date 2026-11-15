@@ -68,6 +68,46 @@ homelab:
 
 Add `earn-pve` and `ncloud-pve` after their workloads and access paths have been discovered.
 
+## Docker deployment (util-pve)
+
+The Compose service is maintained in the `myhomelab` repository at
+`pve/util-pve/docker-compose.yaml`. It runs as part of the Compose project
+`utility`, on the `utility_default` network. The service uses the
+`homelab` Spring profile by default; keep its Config Server environment file
+and read-only SSH key/known-host mounts in the Compose definition.
+
+A push to `master` runs GitHub Actions. After the Maven/Sonar job and Docker
+image publication complete successfully, update the running container on
+`util-pve`:
+
+```bash
+cd ~/myhomelab/pve/util-pve
+
+# Download the image published by the successful master workflow.
+sudo docker compose pull homelab-management-mcp
+
+# Recreate only this service with the image just pulled.
+sudo docker compose up -d --no-deps --force-recreate --pull never homelab-management-mcp
+```
+
+The `--no-deps` option leaves the other services in the `utility` project
+untouched. The `--pull never` option makes the recreation use the image already
+downloaded by the preceding `pull` command.
+
+Verify the deployment:
+
+```bash
+sudo docker compose ps homelab-management-mcp
+sudo docker compose logs --tail=80 homelab-management-mcp
+
+# The service is internal to utility_default; no host port is published.
+sudo docker run --rm --network utility_default curlimages/curl:latest \
+  -fsS http://homelab-management-mcp:8083/actuator/health
+```
+
+The health endpoint should return `{"status":"UP"}`. The MCP Streamable HTTP
+endpoint is `/mcp` on port `8083`.
+
 ## Diagram
 
 <img width="2720" height="2200" alt="homelab_mcp_architecture_generic_names" src="https://github.com/user-attachments/assets/036c5c2f-4d8e-4fe4-a95e-a54609c7f89a" />

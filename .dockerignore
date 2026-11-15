@@ -1,0 +1,9 @@
+.git
+.github
+.idea
+.vscode
+target/*
+!target/homelab-management-mcp-*.jar
+*.log
+.env
+.env.*

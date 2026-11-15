@@ -27,6 +27,10 @@ management:
       application: ${spring.application.name}
 
 homelab:
+  security:
+    issuer: ${HOMELAB_AUTH_ISSUER:https://auth.ikoyski.top}
+    jwk-set-uri: ${HOMELAB_AUTH_JWK_SET_URI:https://auth.ikoyski.top/oauth2/jwks}
+    audience: ${HOMELAB_MCP_AUDIENCE:https://homelab-mcp.ikoyski.top/mcp}
   discovery:
     mode: read-only
     targets: []

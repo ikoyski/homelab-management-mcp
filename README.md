@@ -43,51 +43,31 @@ The target names above are inventory labels, not connection details. Actual endp
 
 ## Configuration
 
-The application imports its private configuration from Spring Cloud Config Server. Supply connection settings through environment variables:
+The application follows the same bootstrap split as `webtools-auth`:
 
-| Variable | Purpose |
-|---|---|
-| `CONFIG_SERVER_URI` | Internal Config Server base URL |
-| `CONFIG_SERVER_USERNAME` | Config Server Basic Auth username |
-| `CONFIG_SERVER_PASSWORD` | Config Server Basic Auth password |
-| `SPRING_PROFILES_ACTIVE` | Runtime profile, default `homelab` |
-| `MANAGEMENT_PORT` | Internal Actuator HTTP port, default `8082` |
+- `application.yaml`: local-development bootstrap, using the Config Server at `localhost:8089`.
+- `application-public.yaml`: deployed bootstrap, using `CONFIG_SERVER_URI`, `CONFIG_SERVER_USERNAME`, and `CONFIG_SERVER_PASSWORD`.
+- `application-local.yaml`: isolated local profile with Config Server disabled.
+- The private Config Server owns runtime settings, including application/Actuator ports, endpoint exposure, authentication issuer/JWK/audience, allowed users, and discovery targets.
 
-Do not commit actual values. Keep encrypted properties in the private Config Server repository and keep the Config Server encryption key outside Git.
+The Docker Compose service activates the `public` profile. The `public` profile is grouped with `homelab`, so the Config Server receives both profiles while the deployed bootstrap uses the external Config Server connection.
 
-The remote configuration can define the non-sensitive target labels:
-
-```yaml
-homelab:
-  discovery:
-    mode: read-only
-    targets:
-      - dev-pve
-      - util-pve
-      - media-pve
-```
-
-Add `earn-pve` and `ncloud-pve` after their workloads and access paths have been discovered.
+Keep the Config Server credentials in the existing runtime env file and never commit their values. Keep the Config Server encryption key outside Git.
 
 ## Docker deployment (util-pve)
 
 The Compose service is maintained in the `myhomelab` repository at
 `pve/util-pve/docker-compose.yaml`. It runs as part of the Compose project
 `utility`, on the `utility_default` network. The service uses the
-`homelab` Spring profile by default; keep its Config Server environment file
-and read-only SSH key/known-host mounts in the Compose definition.
+`public` bootstrap profile and the `homelab` Config Server profile.
 
-A push to `master` runs GitHub Actions. After the Maven/Sonar job and Docker
-image publication complete successfully, update the running container on
-`util-pve`:
+After the Maven/Sonar job and Docker image publication complete successfully,
+update the running container on `util-pve`:
 
 ```bash
 cd ~/myhomelab/pve/util-pve
 
-# Download the image published by the successful master workflow.
 sudo docker compose pull homelab-management-mcp
-
-# Recreate only this service with the image just pulled.
 sudo docker compose up -d --no-deps --force-recreate --pull never homelab-management-mcp
 ```
 
@@ -109,9 +89,7 @@ sudo docker run --rm --network utility_default curlimages/curl:latest \
 The health endpoint should return `{"status":"UP"}`. The MCP Streamable HTTP
 endpoint is `/mcp` on port `8083`. Actuator runs on the separate internal
 management port `8082`; keep the Cloudflare Tunnel origin pointed only at
-port `8083`. The Dockerfile intentionally exposes only the MCP application
-port, and the Compose service should not publish either container port to the
-host.
+port `8083`. Neither container port should be published to the host.
 
 ## Diagram
 
@@ -131,10 +109,10 @@ For local development without Config Server, activate the `local` profile:
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-By default, the MCP application listens on port `8083` (overridable with the
-`PORT` environment variable). The MCP endpoint is `/mcp`. Actuator runs on
-the separate management port `8082` (overridable with `MANAGEMENT_PORT`);
-its health endpoint is `http://localhost:8082/actuator/health`.
+In the `local` profile, the MCP application listens on port `8083` (overridable
+with `PORT`) and Actuator listens on port `8082` (overridable with
+`MANAGEMENT_PORT`). The MCP endpoint is `/mcp`; the health endpoint is
+`http://localhost:8082/actuator/health`.
 
 ## Safety boundary
 

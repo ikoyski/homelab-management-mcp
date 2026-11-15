@@ -1,7 +1,9 @@
 package com.ikoyski.homelab.management.mcp.security;
 
-import java.util.Arrays;
+import java.util.List;
 
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -26,10 +28,11 @@ public class AllowedUserAuthorizationService {
             return false;
         }
 
-        String[] allowedUsers = environment.getProperty(
-                ALLOWED_USERS_PROPERTY, String[].class, new String[0]);
+        List<String> allowedUsers = Binder.get(environment)
+                .bind(ALLOWED_USERS_PROPERTY, Bindable.listOf(String.class))
+                .orElseGet(List::of);
 
-        return Arrays.stream(allowedUsers)
+        return allowedUsers.stream()
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .anyMatch(subject.trim()::equals);

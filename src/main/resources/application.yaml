@@ -7,7 +7,3 @@ spring:
       password: password
   application:
     name: homelab-management-mcp
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:homelab}
-    group:
-      public: homelab

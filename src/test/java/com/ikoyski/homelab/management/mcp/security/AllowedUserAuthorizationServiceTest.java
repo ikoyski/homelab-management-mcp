@@ -14,7 +14,7 @@ class AllowedUserAuthorizationServiceTest {
     @Test
     void allowsSubjectWhenUuidIsInAllowlist() {
         var environment = new MockEnvironment()
-                .withProperty("homelab.security.allowed-users", ALLOWED_UUID);
+                .withProperty("homelab.security.allowed-users[0]", ALLOWED_UUID);
         var service = new AllowedUserAuthorizationService(environment);
 
         assertTrue(service.isAllowed(ALLOWED_UUID));
@@ -23,7 +23,7 @@ class AllowedUserAuthorizationServiceTest {
     @Test
     void rejectsSubjectWhenUuidIsNotInAllowlist() {
         var environment = new MockEnvironment()
-                .withProperty("homelab.security.allowed-users", ALLOWED_UUID);
+                .withProperty("homelab.security.allowed-users[0]", ALLOWED_UUID);
         var service = new AllowedUserAuthorizationService(environment);
 
         assertFalse(service.isAllowed("some-other-user-uuid"));
@@ -31,15 +31,6 @@ class AllowedUserAuthorizationServiceTest {
 
     @Test
     void rejectsEverySubjectWhenAllowlistIsEmpty() {
-        var environment = new MockEnvironment()
-                .withProperty("homelab.security.allowed-users", "");
-        var service = new AllowedUserAuthorizationService(environment);
-
-        assertFalse(service.isAllowed(ALLOWED_UUID));
-    }
-
-    @Test
-    void rejectsEverySubjectWhenAllowlistIsMissing() {
         var service = new AllowedUserAuthorizationService(new MockEnvironment());
 
         assertFalse(service.isAllowed(ALLOWED_UUID));
@@ -48,7 +39,7 @@ class AllowedUserAuthorizationServiceTest {
     @Test
     void rejectsNullOrBlankSubject() {
         var environment = new MockEnvironment()
-                .withProperty("homelab.security.allowed-users", ALLOWED_UUID);
+                .withProperty("homelab.security.allowed-users[0]", ALLOWED_UUID);
         var service = new AllowedUserAuthorizationService(environment);
 
         assertFalse(service.isAllowed(null));
@@ -57,10 +48,10 @@ class AllowedUserAuthorizationServiceTest {
     }
 
     @Test
-    void matchesEntriesInCommaSeparatedAllowlist() {
+    void matchesAnyEntryInConfiguredAllowlist() {
         var environment = new MockEnvironment()
-                .withProperty("homelab.security.allowed-users",
-                        "another-user-uuid, " + ALLOWED_UUID);
+                .withProperty("homelab.security.allowed-users[0]", "another-user-uuid")
+                .withProperty("homelab.security.allowed-users[1]", ALLOWED_UUID);
         var service = new AllowedUserAuthorizationService(environment);
 
         assertTrue(service.isAllowed(ALLOWED_UUID));

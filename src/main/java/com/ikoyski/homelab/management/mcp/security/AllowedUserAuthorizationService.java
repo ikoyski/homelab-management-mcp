@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * Provider-independent authorization against the central Webtools subject UUID allowlist.
- * An absent, blank, or empty allowlist denies access.
+ * Provider-independent authorization against the central Webtools identity UUID allowlist.
+ * The central UUID is issued in the access token's uid claim. An absent or empty allowlist denies access.
  */
 @Component
 public class AllowedUserAuthorizationService {
@@ -23,8 +23,8 @@ public class AllowedUserAuthorizationService {
         this.environment = environment;
     }
 
-    public boolean isAllowed(String subject) {
-        if (!StringUtils.hasText(subject)) {
+    public boolean isAllowed(String centralUserId) {
+        if (!StringUtils.hasText(centralUserId)) {
             return false;
         }
 
@@ -35,6 +35,6 @@ public class AllowedUserAuthorizationService {
         return allowedUsers.stream()
                 .filter(StringUtils::hasText)
                 .map(String::trim)
-                .anyMatch(subject.trim()::equals);
+                .anyMatch(centralUserId.trim()::equals);
     }
 }

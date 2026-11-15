@@ -12,7 +12,7 @@ class AllowedUserAuthorizationServiceTest {
             "a454ad56-1f74-4644-bb31-8d7c1447ec25";
 
     @Test
-    void allowsSubjectWhenUuidIsInAllowlist() {
+    void allowsCentralIdentityWhenUuidIsInAllowlist() {
         var environment = new MockEnvironment()
                 .withProperty("homelab.security.allowed-users[0]", ALLOWED_UUID);
         var service = new AllowedUserAuthorizationService(environment);
@@ -21,7 +21,7 @@ class AllowedUserAuthorizationServiceTest {
     }
 
     @Test
-    void rejectsSubjectWhenUuidIsNotInAllowlist() {
+    void rejectsCentralIdentityWhenUuidIsNotInAllowlist() {
         var environment = new MockEnvironment()
                 .withProperty("homelab.security.allowed-users[0]", ALLOWED_UUID);
         var service = new AllowedUserAuthorizationService(environment);
@@ -30,14 +30,14 @@ class AllowedUserAuthorizationServiceTest {
     }
 
     @Test
-    void rejectsEverySubjectWhenAllowlistIsEmpty() {
+    void rejectsEveryIdentityWhenAllowlistIsEmpty() {
         var service = new AllowedUserAuthorizationService(new MockEnvironment());
 
         assertFalse(service.isAllowed(ALLOWED_UUID));
     }
 
     @Test
-    void rejectsNullOrBlankSubject() {
+    void rejectsNullOrBlankIdentityId() {
         var environment = new MockEnvironment()
                 .withProperty("homelab.security.allowed-users[0]", ALLOWED_UUID);
         var service = new AllowedUserAuthorizationService(environment);

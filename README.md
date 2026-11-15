@@ -68,6 +68,10 @@ homelab:
 
 Add `earn-pve` and `ncloud-pve` after their workloads and access paths have been discovered.
 
+## Diagram
+
+<img width="2720" height="2200" alt="homelab_mcp_three_apps_architecture" src="https://github.com/user-attachments/assets/30bc3725-5d69-4bf5-ad2a-bafc3a55ffd9" />
+
 ## Local development
 
 Requires Java 21 and Maven 3.9+.

@@ -51,6 +51,7 @@ The application imports its private configuration from Spring Cloud Config Serve
 | `CONFIG_SERVER_USERNAME` | Config Server Basic Auth username |
 | `CONFIG_SERVER_PASSWORD` | Config Server Basic Auth password |
 | `SPRING_PROFILES_ACTIVE` | Runtime profile, default `homelab` |
+| `MANAGEMENT_PORT` | Internal Actuator HTTP port, default `8082` |
 
 Do not commit actual values. Keep encrypted properties in the private Config Server repository and keep the Config Server encryption key outside Git.
 
@@ -102,11 +103,15 @@ sudo docker compose logs --tail=80 homelab-management-mcp
 
 # The service is internal to utility_default; no host port is published.
 sudo docker run --rm --network utility_default curlimages/curl:latest \
-  -fsS http://homelab-management-mcp:8083/actuator/health
+  -fsS http://homelab-management-mcp:8082/actuator/health
 ```
 
 The health endpoint should return `{"status":"UP"}`. The MCP Streamable HTTP
-endpoint is `/mcp` on port `8083`.
+endpoint is `/mcp` on port `8083`. Actuator runs on the separate internal
+management port `8082`; keep the Cloudflare Tunnel origin pointed only at
+port `8083`. The Dockerfile intentionally exposes only the MCP application
+port, and the Compose service should not publish either container port to the
+host.
 
 ## Diagram
 
@@ -126,7 +131,10 @@ For local development without Config Server, activate the `local` profile:
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-By default, the application listens on port `8083` (overridable with the `PORT` environment variable). The MCP endpoint is `/mcp`; actuator health is available at `/actuator/health`.
+By default, the MCP application listens on port `8083` (overridable with the
+`PORT` environment variable). The MCP endpoint is `/mcp`. Actuator runs on
+the separate management port `8082` (overridable with `MANAGEMENT_PORT`);
+its health endpoint is `http://localhost:8082/actuator/health`.
 
 ## Safety boundary
 

@@ -27,7 +27,9 @@ public class McpSecurityConfig {
     @Bean
     public SecurityFilterChain mcpSecurityFilterChain(
             HttpSecurity http,
-            AllowedUserAuthorizationService allowedUsers) throws Exception {
+            AllowedUserAuthorizationService allowedUsers,
+            @Value("${homelab.security.issuer}") String issuer,
+            @Value("${homelab.security.audience}") String audience) throws Exception {
 
         http
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/mcp"))
@@ -36,7 +38,15 @@ public class McpSecurityConfig {
                         .requestMatchers("/mcp").access((authentication, context) ->
                                 authorizeAllowlistedIdentity(authentication.get(), allowedUsers))
                         .anyRequest().permitAll())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(Customizer.withDefaults())
+                        .protectedResourceMetadata(metadata -> metadata
+                                .protectedResourceMetadataCustomizer(resourceMetadata -> resourceMetadata
+                                        .resource(audience)
+                                        .authorizationServer(issuer)
+                                        .scope("homelab.read")
+                                        .bearerMethod("header")
+                                        .tlsClientCertificateBoundAccessTokens(false))));
 
         return http.build();
     }

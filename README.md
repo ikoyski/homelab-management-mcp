@@ -43,16 +43,17 @@ The target names above are inventory labels, not connection details. Actual endp
 
 ## Configuration
 
-The application follows the same bootstrap split as `webtools-auth`:
+The application follows the Config Server bootstrap structure used by `webtools-auth`:
 
-- `application.yaml`: local-development bootstrap, using the Config Server at `localhost:8089`.
-- `application-public.yaml`: deployed bootstrap, using `CONFIG_SERVER_URI`, `CONFIG_SERVER_USERNAME`, and `CONFIG_SERVER_PASSWORD`.
-- `application-local.yaml`: isolated local profile with Config Server disabled.
+- `application.yaml`: default-profile bootstrap.
+- `application-local.yaml`: local-profile bootstrap, using the same Config Server connection settings.
+- Both files use the Config Server at `localhost:8089` with the bootstrap credentials shown in the reference application.
+- There is no `public` Spring profile or profile group. Deployment-specific Config Server connectivity is supplied through the runtime environment where needed.
 - The private Config Server owns runtime settings, including application/Actuator ports, endpoint exposure, authentication issuer/JWK/audience, allowed users, and discovery targets.
 
-The Docker Compose service activates the `public` profile. The `public` profile is grouped with `homelab`, so the Config Server receives both profiles while the deployed bootstrap uses the external Config Server connection.
+The Config Server serves the application configuration as `homelab-management-mcp.yaml` for the default profile. The MCP service does not activate a separate `public` or `homelab` Spring profile.
 
-Keep the Config Server credentials in the existing runtime env file and never commit their values. Keep the Config Server encryption key outside Git.
+Keep production Config Server credentials and the Config Server encryption key outside Git.
 
 ## Docker deployment (util-pve)
 
@@ -103,16 +104,14 @@ Requires Java 21 and Maven 3.9+.
 mvn spring-boot:run
 ```
 
-For local development without Config Server, activate the `local` profile:
+To run with the `local` Spring profile, while retaining the same Config Server bootstrap:
 
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-In the `local` profile, the MCP application listens on port `8083` (overridable
-with `PORT`) and Actuator listens on port `8082` (overridable with
-`MANAGEMENT_PORT`). The MCP endpoint is `/mcp`; the health endpoint is
-`http://localhost:8082/actuator/health`.
+The Config Server must be reachable at `localhost:8089` for this local setup.
+Runtime ports and service settings are supplied by the Config Server.
 
 ## Safety boundary
 

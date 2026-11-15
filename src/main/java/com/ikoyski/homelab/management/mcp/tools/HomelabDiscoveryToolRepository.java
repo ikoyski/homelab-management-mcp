@@ -16,6 +16,8 @@ import io.modelcontextprotocol.modern.server.feature.McpSyncToolRepository;
 import io.modelcontextprotocol.modern.server.feature.ToolsPage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
@@ -60,8 +62,9 @@ public class HomelabDiscoveryToolRepository implements McpSyncToolRepository {
             return error("Unknown tool.");
         }
 
-        String[] targets = environment.getProperty(
-                "homelab.discovery.targets", String[].class, new String[0]);
+        List<String> targets = Binder.get(environment)
+                .bind("homelab.discovery.targets", Bindable.listOf(String.class))
+                .orElseGet(List::of);
         List<String> safeTargets = new ArrayList<>();
         for (String target : targets) {
             if (target != null && target.matches("[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}")) {

@@ -1,0 +1,10 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+
+homelab:
+  discovery:
+    mode: read-only
+    targets:
+      - local-development-only

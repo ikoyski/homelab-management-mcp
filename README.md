@@ -43,14 +43,13 @@ The target names above are inventory labels, not connection details. Actual endp
 
 ## Configuration
 
-The application follows the same bootstrap split as `webtools-auth`:
+The MCP uses only Spring's default profile; it does not define separate `public` or `homelab` profiles.
 
-- `application.yaml`: local-development bootstrap, using the Config Server at `localhost:8089`.
-- `application-public.yaml`: deployed bootstrap, using `CONFIG_SERVER_URI`, `CONFIG_SERVER_USERNAME`, and `CONFIG_SERVER_PASSWORD`.
-- `application-local.yaml`: isolated local profile with Config Server disabled.
+- `application.yaml` contains bootstrap settings only: application name, Config Server import, and Config Server credentials.
+- The Config Server serves the default configuration from `homelab-management-mcp.yaml`.
 - The private Config Server owns runtime settings, including application/Actuator ports, endpoint exposure, authentication issuer/JWK/audience, allowed users, and discovery targets.
 
-The Docker Compose service activates the `public` profile. The `public` profile is grouped with `homelab`, so the Config Server receives both profiles while the deployed bootstrap uses the external Config Server connection.
+The Config Server URI and credentials are supplied through environment variables in deployment. For local development, the defaults point to `localhost:8089` with the local Config Server credentials.
 
 Keep the Config Server credentials in the existing runtime env file and never commit their values. Keep the Config Server encryption key outside Git.
 
@@ -58,8 +57,8 @@ Keep the Config Server credentials in the existing runtime env file and never co
 
 The Compose service is maintained in the `myhomelab` repository at
 `pve/util-pve/docker-compose.yaml`. It runs as part of the Compose project
-`utility`, on the `utility_default` network. The service uses the
-`public` bootstrap profile and the `homelab` Config Server profile.
+`utility`, on the `utility_default` network. It uses the default Spring
+profile and fetches the default application configuration from Config Server.
 
 After the Maven/Sonar job and Docker image publication complete successfully,
 update the running container on `util-pve`:
@@ -99,20 +98,16 @@ port `8083`. Neither container port should be published to the host.
 
 Requires Java 21 and Maven 3.9+.
 
+Run the application with the default profile and a local Config Server:
+
 ```bash
 mvn spring-boot:run
 ```
 
-For local development without Config Server, activate the `local` profile:
-
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=local
-```
-
-In the `local` profile, the MCP application listens on port `8083` (overridable
-with `PORT`) and Actuator listens on port `8082` (overridable with
-`MANAGEMENT_PORT`). The MCP endpoint is `/mcp`; the health endpoint is
-`http://localhost:8082/actuator/health`.
+The MCP application and Actuator ports, plus the authentication and discovery
+settings, are obtained from the default Config Server configuration. Set
+`CONFIG_SERVER_URI`, `CONFIG_SERVER_USERNAME`, and
+`CONFIG_SERVER_PASSWORD` if your local Config Server differs from the defaults.
 
 ## Safety boundary
 

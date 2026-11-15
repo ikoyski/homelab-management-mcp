@@ -82,7 +82,7 @@ For local development without Config Server, activate the `local` profile:
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-The MCP endpoint is `/mcp`. Actuator health is available at `/actuator/health`.
+By default, the application listens on port `8084` (overridable with the `PORT` environment variable). The MCP endpoint is `/mcp`; actuator health is available at `/actuator/health`.
 
 ## Safety boundary
 

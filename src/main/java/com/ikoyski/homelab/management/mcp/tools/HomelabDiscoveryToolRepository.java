@@ -5,8 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
+import tools.jackson.databind.ObjectMapper;
 import com.ikoyski.homelab.management.mcp.proxmox.ProxmoxInventoryService;
 import io.modelcontextprotocol.modern.McpSchema.CallToolOutcome;
 import io.modelcontextprotocol.modern.McpSchema.CallToolRequest;
@@ -63,7 +63,7 @@ public class HomelabDiscoveryToolRepository implements McpSyncToolRepository {
             if(result==null) return error("Unknown tool.");
             log.info("mcp_tool_call_completed tool={}",name);
             return McpSyncResponse.result(CallToolResult.builder().addContent(TextContent.builder(mapper.writeValueAsString(result)).build()).build());
-        } catch(JsonProcessingException ex) {
+        } catch(RuntimeException ex) {
             log.error("Unable to serialize MCP tool result tool={}",name);
             return error("Unable to serialize inventory result.");
         }

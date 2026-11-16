@@ -1,6 +1,7 @@
 package com.ikoyski.homelab.management.mcp.proxmox;
 
 import java.time.Duration;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -79,6 +80,10 @@ public class ProxmoxInventoryService {
         for(String key:List.of("homelab.proxmox.api-url","homelab.proxmox.token-id","homelab.proxmox.token-secret")) {
             String value=environment.getProperty(key);
             if(value==null||value.isBlank()) throw new IllegalStateException("Proxmox configuration is incomplete");
+        }
+        URI apiUri=URI.create(environment.getProperty("homelab.proxmox.api-url"));
+        if(!"https".equalsIgnoreCase(apiUri.getScheme())||apiUri.getHost()==null) {
+            throw new IllegalStateException("Proxmox API URL must use HTTPS and include a host");
         }
     }
     private static String authHeader(Environment env) {

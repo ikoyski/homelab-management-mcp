@@ -3,7 +3,6 @@ package com.ikoyski.homelab.management.mcp.proxmox;
 import java.time.Duration;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,7 +109,7 @@ public class ProxmoxInventoryService {
         return Arrays.stream(content.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
-                .sorted(Comparator.comparing(String::toLowerCase).thenComparing(Comparator.naturalOrder()))
+                .sorted()
                 .collect(java.util.stream.Collectors.joining(","));
     }
 

@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.Arrays;
 
 import tools.jackson.databind.JsonNode;
 import org.slf4j.Logger;
@@ -93,10 +94,25 @@ public class ProxmoxInventoryService {
         Map<String,Object> result=new LinkedHashMap<>();
         for(String field:fields) {
             JsonNode value=node.get(field);
-            if(value!=null&&!value.isNull()) result.put(field,value.isNumber()?value.numberValue():value.isBoolean()?value.booleanValue():value.asText());
+            if(value!=null&&!value.isNull()) {
+                Object safeValue=value.isNumber()?value.numberValue():value.isBoolean()?value.booleanValue():value.asText();
+                if("content".equals(field) && safeValue instanceof String content) {
+                    safeValue=sortContentTypes(content);
+                }
+                result.put(field,safeValue);
+            }
         }
         return result;
     }
+
+    static String sortContentTypes(String content) {
+        return Arrays.stream(content.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .sorted()
+                .collect(java.util.stream.Collectors.joining(","));
+    }
+
     private static void addError(List<String> errors,String name,Map<String,Object> section) {
         if(!"ok".equals(section.get("status"))) errors.add(name+": "+section.getOrDefault("error","unavailable"));
     }

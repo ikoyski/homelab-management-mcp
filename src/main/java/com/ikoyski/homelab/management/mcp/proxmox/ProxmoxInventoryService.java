@@ -3,11 +3,12 @@ package com.ikoyski.homelab.management.mcp.proxmox;
 import java.time.Duration;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
-import java.util.Arrays;
 
 import tools.jackson.databind.JsonNode;
 import org.slf4j.Logger;
@@ -42,7 +43,7 @@ public class ProxmoxInventoryService {
                 item -> "lxc".equals(item.get("type")) || "qemu".equals(item.get("type")));
     }
     public Map<String,Object> storage() {
-        return collect("/api2/json/cluster/resources?type=storage", STORAGE_FIELDS, null);
+        return sortStorageEntries(collect("/api2/json/cluster/resources?type=storage", STORAGE_FIELDS, null));
     }
     public Map<String,Object> inventory() {
         Map<String,Object> n=nodes(), g=guests(), s=storage();
@@ -111,6 +112,24 @@ public class ProxmoxInventoryService {
                 .filter(value -> !value.isEmpty())
                 .sorted()
                 .collect(java.util.stream.Collectors.joining(","));
+    }
+
+    static Map<String,Object> sortStorageEntries(Map<String,Object> result) {
+        Object value=result.get("items");
+        if (!(value instanceof List<?> items)) {
+            return result;
+        }
+
+        List<?> sortedItems=items.stream()
+                .sorted(Comparator.comparing(item -> {
+                    if (item instanceof Map<?,?> storage && storage.get("storage") != null) {
+                        return storage.get("storage").toString();
+                    }
+                    return "";
+                }))
+                .toList();
+        result.put("items",sortedItems);
+        return result;
     }
 
     private static void addError(List<String> errors,String name,Map<String,Object> section) {

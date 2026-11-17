@@ -33,6 +33,7 @@ Release 1 uses the Proxmox VE HTTPS API as the authoritative inventory source. I
 - Return structured, concise results.
 - Never fail the complete inventory because one target is unavailable.
 - Avoid logging authorization headers, tokens, private keys, environment values, or raw secret-bearing responses.
+- `ProxmoxInventoryService` currently logs only the outer exception class for request failures; do not assume nested TLS causes are present in logs. If improving diagnostics, log only a sanitized root-cause class and never exception messages, headers or response bodies.
 - Add tests for parsing, partial failure, timeout behavior, and secret redaction.
 - Keep README.md and this file synchronized when architecture or operations change.
 

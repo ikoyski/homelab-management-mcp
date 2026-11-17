@@ -1,6 +1,7 @@
 package com.ikoyski.homelab.management.mcp.proxmox;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,6 +56,8 @@ public class ProxmoxInventoryService {
         result.put("guests",g.getOrDefault("items",List.of()));
         result.put("storage",s.getOrDefault("items",List.of()));
         result.put("errors",errors);
+        // This marks completion of the combined collection, not a shared snapshot time.
+        result.put("collectedAt",collectedAt());
         return result;
     }
 
@@ -76,6 +79,7 @@ public class ProxmoxInventoryService {
             result.put("status","error"); result.put("count",0); result.put("items",List.of());
             result.put("error","Proxmox request failed ("+ex.getClass().getSimpleName()+")");
         }
+        result.put("collectedAt",collectedAt());
         return result;
     }
     private void requireConfiguration() {
@@ -104,6 +108,10 @@ public class ProxmoxInventoryService {
             }
         }
         return result;
+    }
+
+    static String collectedAt() {
+        return Instant.now().toString();
     }
 
     static String sortContentTypes(String content) {

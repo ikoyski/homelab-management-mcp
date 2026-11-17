@@ -24,7 +24,7 @@ Build a private-homelab discovery and management MCP server. Start with read-onl
 
 ## Release 1 target model
 
-Release 1 uses the Proxmox VE HTTPS API as the authoritative inventory source. It discovers cluster nodes, QEMU VMs, LXC containers and storage through the Proxmox API; it does not connect to each guest or host over SSH. The optional `homelab.discovery.targets` labels are informational output for `get_discovery_scope`; they are not an SSH target list, endpoint list or authorization boundary. Never infer or hardcode guest names, VMIDs, addresses or credentials.
+Release 1 uses the Proxmox VE HTTPS API as the authoritative inventory source. It discovers cluster nodes, QEMU VMs, LXC containers and storage through the Proxmox API; it does not connect to each guest or host over SSH. The `homelab.discovery.targets` list is read and returned as sanitized informational labels by `get_discovery_scope`; it is not an SSH target list, endpoint list or authorization boundary. The configured `homelab.discovery.mode` property is not currently read; the tool hardcodes `read-only` in its response. Never infer or hardcode guest names, VMIDs, addresses or credentials.
 
 
 ## Implementation expectations

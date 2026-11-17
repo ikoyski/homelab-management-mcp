@@ -5,13 +5,11 @@ import io.modelcontextprotocol.modern.McpSchema.Implementation;
 import io.modelcontextprotocol.modern.server.McpServer;
 import io.modelcontextprotocol.modern.server.transport.HttpServletMcpTransport;
 import io.modelcontextprotocol.modern.server.feature.ToolsFeature;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class McpConfig {
-
     @Bean
     public McpServer homelabMcpServer(HomelabDiscoveryToolRepository tools) {
         return McpServer.builder()
@@ -21,21 +19,9 @@ public class McpConfig {
                 .build();
     }
 
+    /** Internal transport. The protocol router is the only servlet registered at /mcp. */
     @Bean(destroyMethod = "closeGracefully")
-    public HttpServletMcpTransport homelabMcpTransport(McpServer server) {
-        return HttpServletMcpTransport.builder(server)
-                .endpoint("/mcp")
-                .build();
-    }
-
-    @Bean
-    public ServletRegistrationBean<HttpServletMcpTransport> homelabMcpServlet(
-            HttpServletMcpTransport transport) {
-        ServletRegistrationBean<HttpServletMcpTransport> registration =
-                new ServletRegistrationBean<>(transport, "/mcp");
-        registration.setName("homelabMcpTransport");
-        registration.setLoadOnStartup(1);
-        registration.setAsyncSupported(true);
-        return registration;
+    public HttpServletMcpTransport homelabModernMcpTransport(McpServer server) {
+        return HttpServletMcpTransport.builder(server).endpoint("/mcp").build();
     }
 }

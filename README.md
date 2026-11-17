@@ -34,8 +34,8 @@ Configure the following properties in the private Config Server under `homelab-m
 | Property | Purpose |
 |---|---|
 | `homelab.security.allowed-users` | Allowlist of central Webtools identity UUIDs; an absent or empty list denies access |
-| `homelab.discovery.mode` | Informational discovery mode reported by `get_discovery_scope` |
-| `homelab.discovery.targets` | Informational target labels reported by `get_discovery_scope`; not SSH targets or connection endpoints |
+| `homelab.discovery.targets` | Informational target labels read by `get_discovery_scope`; not SSH targets or connection endpoints |
+| `homelab.discovery.mode` | Present in configuration but not currently read by the tool; `get_discovery_scope` hardcodes `read-only` in its response |
 | `homelab.proxmox.api-url` | Proxmox API base URL, including HTTPS scheme and port |
 | `homelab.proxmox.token-id` | Proxmox API token identifier (user/realm and token name) |
 | `homelab.proxmox.token-secret` | Proxmox API token secret |

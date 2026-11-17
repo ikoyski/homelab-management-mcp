@@ -34,6 +34,19 @@ Store these only in the private Config Server or protected runtime environment:
 
 Use a dedicated API token with minimum read-only privileges. Keep TLS certificate and hostname verification enabled. Fix trust-chain problems by configuring the correct CA in the Java runtime.
 
+## Java truststore for private Proxmox CA
+
+The adapter uses the JVM's standard TLS validation. In a deployment where Proxmox presents a certificate issued by a private cluster CA, the operator must provision a custom Java truststore at runtime.
+
+The truststore should be created from the JRE image's original `cacerts` so normal public roots remain trusted, then extended with the Proxmox root CA. Mount it read-only and set the JVM properties through `JAVA_TOOL_OPTIONS`:
+
+```text
+-Djavax.net.ssl.trustStore=<mounted-truststore-path>
+-Djavax.net.ssl.trustStorePassword=<truststore-password>
+```
+
+Do not commit the CA/truststore or bake a site-specific CA into this public image. Do not disable certificate or hostname verification. The host-specific steps belong in the private `myhomelab` deployment runbook at `pve/util-pve/docs/proxmox-ca-trust.md`.
+
 ## Failure and data handling
 
 Each API section is isolated. Errors contain no response body, exception message, authorization header, or credential. Results include only allowlisted inventory fields. No environment variables, secrets, private keys, or arbitrary Proxmox response fields are returned.

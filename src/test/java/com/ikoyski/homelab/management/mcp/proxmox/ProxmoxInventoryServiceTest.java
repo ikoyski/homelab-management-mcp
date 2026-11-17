@@ -2,6 +2,7 @@ package com.ikoyski.homelab.management.mcp.proxmox;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,5 +45,10 @@ class ProxmoxInventoryServiceTest {
         Map<String,Object> result = Map.of("status", "error", "count", 0);
 
         assertThat(ProxmoxInventoryService.sortStorageEntries(result)).isSameAs(result);
+    }
+
+    @Test
+    void collectedAtIsAnIso8601UtcTimestamp() {
+        assertThat(Instant.parse(ProxmoxInventoryService.collectedAt())).isNotNull();
     }
 }

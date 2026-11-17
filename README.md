@@ -41,6 +41,30 @@ Configure the following properties in the private Config Server under `homelab-m
 
 Do not commit real values to this repository. The token must be scoped to the minimum required read-only Proxmox privileges. If the Proxmox certificate is not trusted by the Java runtime, install the correct CA certificate rather than disabling TLS verification.
 
+## Proxmox TLS trust
+
+The Proxmox adapter uses HTTPS with normal JVM certificate and hostname verification. If the Proxmox API certificate chains to a private Proxmox cluster CA, the deployment must provide a Java truststore that contains both the image's normal public CA roots and the Proxmox CA.
+
+- Build the truststore from the JRE's original `cacerts`, then import the Proxmox CA under a dedicated alias.
+- Mount the resulting truststore read-only into the container and set `JAVA_TOOL_OPTIONS` with `javax.net.ssl.trustStore` and `javax.net.ssl.trustStorePassword`.
+- Keep the CA and generated truststore on the private deployment host; never bake environment-specific private CA material into this public image or commit the truststore.
+- Do not use trust-all TLS settings, disable hostname verification, or use `curl -k` as a workaround.
+
+The private deployment procedure is maintained in `ikoyski/myhomelab`, at `pve/util-pve/docs/proxmox-ca-trust.md`. It records the host paths, Docker mounts, import/verification commands and CA renewal procedure.
+
+An unauthenticated request to the protected `/mcp` endpoint is expected to return HTTP 401 with an OAuth bearer challenge. The service port should remain unpublished on the host and reachable only through the intended private Docker network / Cloudflare Tunnel boundary. Do not expose the actuator management port publicly.
+
+## Current Release 1 verification status
+
+As of 2026-11-17, the following homelab-side checks have been observed:
+
+- Proxmox API HTTPS request with the CA bundle returned HTTP 401 when unauthenticated, confirming TLS validation and reachability.
+- A Proxmox API token request to the nodes endpoint returned HTTP 200.
+- The mounted Java truststore contains the `proxmox-cluster-ca` trusted certificate entry, and `keytool` can read it.
+- The MCP container starts with the custom truststore configured.
+- The local protected `/mcp` endpoint returns the expected OAuth 401 challenge.
+- End-to-end MCP tool invocation through an AI client remains pending after the TLS fix. Do not mark the four inventory tools as end-to-end verified until they return real inventory through MCP.
+
 ## Technology
 
 - Java 21

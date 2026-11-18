@@ -51,6 +51,29 @@ class ProxmoxInventoryServiceTest {
     }
 
     @Test
+    void roundsCpuFractionsToSixDecimalPlacesWithoutScientificNotation() throws Exception {
+        var source = jsonMapper.readTree("""
+                {"cpu":0.000630976679763674}
+                """);
+
+        Map<String,Object> fields = ProxmoxInventoryService.safeFields(source, List.of("cpu"));
+
+        assertThat(fields.get("cpu")).isEqualTo(new java.math.BigDecimal("0.000631"));
+        assertThat(((java.math.BigDecimal) fields.get("cpu")).toPlainString()).isEqualTo("0.000631");
+    }
+
+    @Test
+    void preservesCpuFractionsAsFractionsRatherThanPercentages() throws Exception {
+        var source = jsonMapper.readTree("""
+                {"cpu":0.256789123}
+                """);
+
+        Map<String,Object> fields = ProxmoxInventoryService.safeFields(source, List.of("cpu"));
+
+        assertThat(fields.get("cpu")).isEqualTo(new java.math.BigDecimal("0.256789"));
+    }
+
+    @Test
     void mapsDirectoryStorageStatusToSafeCapacityFields() throws Exception {
         var response = jsonMapper.readTree("""
                 {

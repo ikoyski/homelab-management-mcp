@@ -88,9 +88,7 @@ public class ProxmoxInventoryService {
         if (!(storageName instanceof String name) || name.isBlank()
                 || !(nodeName instanceof String node) || node.isBlank()) {
             String errorCode = "storage_identity_unavailable";
-            storage.put("storageStatus", "unavailable");
-            storage.put("storageError", errorCode);
-            errors.add(String.valueOf(storageName) + ": " + errorCode);
+            recordStorageFailure(storage, errors, String.valueOf(storageName), errorCode);
             return;
         }
 
@@ -99,17 +97,14 @@ public class ProxmoxInventoryService {
                     .uri("/api2/json/nodes/{node}/storage/{storage}/status", node, name)
                     .retrieve().body(JsonNode.class);
             JsonNode data = response == null ? null : response.get("data");
-            storage.putAll(safeStorageStatusFields(data));
-            storage.put("storageStatus", "ok");
+            applyStorageStatus(storage, data);
         } catch (Exception ex) {
             String errorCode = storageFailureCode(ex);
             Integer httpStatus = ex instanceof org.springframework.web.client.RestClientResponseException responseException
                     ? responseException.getStatusCode().value() : null;
             log.warn("Proxmox storage status request failed node={} storage={} errorCode={} httpStatus={}",
                     node, name, errorCode, httpStatus);
-            storage.put("storageStatus", "unavailable");
-            storage.put("storageError", errorCode);
-            errors.add(name + ": " + errorCode);
+            recordStorageFailure(storage, errors, name, errorCode);
         }
     }
 
@@ -135,6 +130,18 @@ public class ProxmoxInventoryService {
                     Math.round(usedBytes.doubleValue() * 1000.0 / totalBytes.doubleValue()) / 10.0);
         }
         return result;
+    }
+
+    static void applyStorageStatus(Map<String,Object> storage, JsonNode data) {
+        storage.putAll(safeStorageStatusFields(data));
+        storage.put("storageStatus", "ok");
+    }
+
+    static void recordStorageFailure(Map<String,Object> storage, List<String> errors,
+            String storageName, String errorCode) {
+        storage.put("storageStatus", "unavailable");
+        storage.put("storageError", errorCode);
+        errors.add(storageName + ": " + errorCode);
     }
 
     static String storageFailureCode(Exception ex) {
@@ -351,7 +358,7 @@ public class ProxmoxInventoryService {
         return result;
     }
 
-    private static void addError(List<String> errors,String name,Map<String,Object> section) {
+    static void addError(List<String> errors,String name,Map<String,Object> section) {
         if ("partial".equals(section.get("status"))) {
             Object sectionErrors = section.get("errors");
             if (sectionErrors instanceof List<?> details) {

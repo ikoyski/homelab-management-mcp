@@ -1,6 +1,8 @@
 package com.ikoyski.homelab.management.mcp.proxmox;
 
 import java.time.Duration;
+import java.math.RoundingMode;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.net.URI;
 import java.util.ArrayList;
@@ -252,12 +254,16 @@ public class ProxmoxInventoryService {
     private static String authHeader(Environment env) {
         return "PVEAPIToken="+env.getProperty("homelab.proxmox.token-id","")+"="+env.getProperty("homelab.proxmox.token-secret","");
     }
-    private static Map<String,Object> safeFields(JsonNode node,List<String> fields) {
+    static Map<String,Object> safeFields(JsonNode node,List<String> fields) {
         Map<String,Object> result=new LinkedHashMap<>();
         for(String field:fields) {
             JsonNode value=node.get(field);
             if(value!=null&&!value.isNull()) {
                 Object safeValue=value.isNumber()?value.numberValue():value.isBoolean()?value.booleanValue():value.asText();
+                if ("cpu".equals(field) && value.isNumber()) {
+                    // Proxmox reports CPU as a 0..1 fraction; BigDecimal keeps small values readable in JSON.
+                    safeValue = value.decimalValue().setScale(6, RoundingMode.HALF_UP);
+                }
                 if("content".equals(field) && safeValue instanceof String content) {
                     safeValue=sortContentTypes(content);
                 }

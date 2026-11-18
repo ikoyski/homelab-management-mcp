@@ -2,6 +2,7 @@ package com.ikoyski.homelab.management.mcp.proxmox;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,5 +87,9 @@ class ProxmoxInventoryServiceTest {
                 .containsEntry("usedBytes", 0L)
                 .containsEntry("availableBytes", 0L)
                 .doesNotContainKey("usagePercent");
+    }
+}
+    void collectedAtIsAnIso8601UtcTimestamp() {
+        assertThat(Instant.parse(ProxmoxInventoryService.collectedAt())).isNotNull();
     }
 }

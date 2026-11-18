@@ -23,6 +23,22 @@ entries, and are included in the storage section's sanitized `errors` list.
 
 The adapter extracts explicit safe fields and does not return raw API payloads. A failure in one section does not suppress successful sections; combined inventory is marked partial and includes a sanitized error summary.
 
+## Metric semantics
+
+The `cpu` field from Proxmox is a utilization fraction in the range `0` to
+`1`; it is rounded to six decimal places for readable JSON and remains a
+fraction rather than a percentage.
+
+For QEMU and LXC guest entries, `maxdisk` is the reported root/boot disk
+capacity and `disk` is Proxmox's reported used root-image space. QEMU
+`disk` may remain zero because the cluster inventory endpoint does not
+provide actual in-guest filesystem usage for a VM. LXC disk reporting differs.
+A zero QEMU `disk` value must not be interpreted as an empty virtual disk.
+
+QEMU in-guest filesystem usage is reported separately through the QEMU Guest
+Agent `filesystems` enrichment. It describes mounted filesystems inside the
+guest and must not be substituted into the Proxmox `disk` field.
+
 ## MCP tools
 
 - `list_proxmox_nodes`

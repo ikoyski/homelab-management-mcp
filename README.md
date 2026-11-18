@@ -145,7 +145,7 @@ The Config Server must be reachable using protected bootstrap settings supplied 
 
 ## Future releases
 
-- Release 2: Docker discovery and management visibility.
+- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. The design excludes shared-pve and keeps the MCP inventory model independent of Portainer.
 - Later releases: separately designed, explicitly authorized operational actions with approval and audit controls.
 
 Future write-capable tools must be separate from discovery tools and enforced server-side. Destructive actions must never be bundled into general inventory operations.

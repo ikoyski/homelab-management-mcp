@@ -43,7 +43,7 @@ public class HomelabDiscoveryToolRepository implements McpSyncToolRepository {
         definitions.put("list_proxmox_nodes", tool("list_proxmox_nodes",
                 "List Proxmox cluster nodes and safe status/resource fields."));
         definitions.put("list_proxmox_guests", tool("list_proxmox_guests",
-                "List all discovered QEMU virtual machines and LXC containers; guest names and IDs are discovered dynamically."));
+                "List discovered QEMU virtual machines and LXC containers. QEMU filesystem usage is included when the guest agent is available."));
         definitions.put("list_proxmox_storage", tool("list_proxmox_storage",
                 "List Proxmox storage inventory and safe capacity/status fields."));
         definitions.put("get_proxmox_inventory", tool("get_proxmox_inventory",

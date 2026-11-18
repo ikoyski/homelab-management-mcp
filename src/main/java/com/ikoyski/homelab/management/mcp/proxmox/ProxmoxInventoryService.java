@@ -39,13 +39,27 @@ public class ProxmoxInventoryService {
     }
 
     public Map<String,Object> nodes() { return collect("/api2/json/nodes", NODE_FIELDS, null); }
+
     public Map<String,Object> guests() {
-        return collect("/api2/json/cluster/resources?type=vm", GUEST_FIELDS,
+        Map<String,Object> result = collect("/api2/json/cluster/resources?type=vm", GUEST_FIELDS,
                 item -> "lxc".equals(item.get("type")) || "qemu".equals(item.get("type")));
+        Object value = result.get("items");
+        if ("ok".equals(result.get("status")) && value instanceof List<?> items) {
+            for (Object item : items) {
+                if (item instanceof Map<?,?> guest && "qemu".equals(guest.get("type"))) {
+                    @SuppressWarnings("unchecked")
+                    Map<String,Object> qemuGuest = (Map<String,Object>) guest;
+                    addFilesystemInfo(qemuGuest);
+                }
+            }
+        }
+        return result;
     }
+
     public Map<String,Object> storage() {
         return sortStorageEntries(collect("/api2/json/cluster/resources?type=storage", STORAGE_FIELDS, null));
     }
+
     public Map<String,Object> inventory() {
         Map<String,Object> n=nodes(), g=guests(), s=storage();
         List<String> errors=new ArrayList<>();
@@ -59,6 +73,38 @@ public class ProxmoxInventoryService {
         // This marks completion of the combined collection, not a shared snapshot time.
         result.put("collectedAt",collectedAt());
         return result;
+    }
+
+    private void addFilesystemInfo(Map<String,Object> guest) {
+        String node = String.valueOf(guest.get("node"));
+        Object vmid = guest.get("vmid");
+        List<Map<String,Object>> filesystems = new ArrayList<>();
+        try {
+            if (!(vmid instanceof Number)) {
+                throw new IllegalStateException("QEMU guest ID is unavailable");
+            }
+            String path = "/api2/json/nodes/{node}/qemu/{vmid}/agent/get-fsinfo";
+            JsonNode response = client.get().uri(path, node, vmid).retrieve().body(JsonNode.class);
+            JsonNode data = response == null ? null : response.get("data");
+            if (data == null || !data.isArray()) {
+                throw new IllegalStateException("Unexpected QEMU guest-agent response shape");
+            }
+            for (JsonNode entry : data) {
+                filesystems.add(safeFilesystemFields(entry));
+            }
+            filesystems.sort(Comparator
+                    .comparing((Map<String,Object> fs) -> String.valueOf(fs.getOrDefault("mountpoint", "")))
+                    .thenComparing(fs -> String.valueOf(fs.getOrDefault("name", ""))));
+            guest.put("filesystemStatus", "ok");
+            guest.put("filesystems", filesystems);
+        } catch (Exception ex) {
+            log.warn("Proxmox guest filesystem request failed node={} vmid={} cause={}",
+                    node, vmid, ex.getClass().getSimpleName());
+            guest.put("filesystemStatus", "unavailable");
+            guest.put("filesystems", List.of());
+            guest.put("filesystemError", "Guest filesystem information unavailable (" +
+                    ex.getClass().getSimpleName() + ")");
+        }
     }
 
     private Map<String,Object> collect(String path,List<String> fields,Predicate<Map<String,Object>> filter) {
@@ -110,6 +156,34 @@ public class ProxmoxInventoryService {
         return result;
     }
 
+    static Map<String,Object> safeFilesystemFields(JsonNode node) {
+        Map<String,Object> result = new LinkedHashMap<>();
+        copyTextField(node, result, "name");
+        copyTextField(node, result, "mountpoint");
+        copyTextField(node, result, "type");
+
+        JsonNode totalNode = node.get("total-bytes");
+        JsonNode usedNode = node.get("used-bytes");
+        if (totalNode != null && totalNode.isNumber() && usedNode != null && usedNode.isNumber()) {
+            long totalBytes = Math.max(0L, totalNode.longValue());
+            long usedBytes = Math.max(0L, usedNode.longValue());
+            result.put("totalBytes", totalBytes);
+            result.put("usedBytes", usedBytes);
+            result.put("availableBytes", Math.max(0L, totalBytes - usedBytes));
+            if (totalBytes > 0) {
+                result.put("usagePercent", Math.round(usedBytes * 1000.0 / totalBytes) / 10.0);
+            }
+        }
+        return result;
+    }
+
+    private static void copyTextField(JsonNode source, Map<String,Object> target, String field) {
+        JsonNode value = source.get(field);
+        if (value != null && !value.isNull()) {
+            target.put(field, value.asText());
+        }
+    }
+  
     static String collectedAt() {
         return Instant.now().toString();
     }

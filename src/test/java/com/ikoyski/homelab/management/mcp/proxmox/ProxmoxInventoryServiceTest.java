@@ -7,9 +7,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 
 class ProxmoxInventoryServiceTest {
+
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     @Test
     void sortsStorageContentTypesAlphabeticallyAndRemovesWhitespace() {
@@ -46,6 +49,46 @@ class ProxmoxInventoryServiceTest {
 
         assertThat(ProxmoxInventoryService.sortStorageEntries(result)).isSameAs(result);
     }
+
+    @Test
+    void mapsGuestFilesystemUsageToSafeStableFields() throws Exception {
+        var source = jsonMapper.readTree("""
+                {
+                  "name": "sda2",
+                  "mountpoint": "/",
+                  "type": "ext4",
+                  "total-bytes": 99700789248,
+                  "used-bytes": 48389709824,
+                  "disk": [{"serial": "must-not-be-exposed"}]
+                }
+                """);
+
+        Map<String,Object> filesystem = ProxmoxInventoryService.safeFilesystemFields(source);
+
+        assertThat(filesystem).containsEntry("name", "sda2")
+                .containsEntry("mountpoint", "/")
+                .containsEntry("type", "ext4")
+                .containsEntry("totalBytes", 99700789248L)
+                .containsEntry("usedBytes", 48389709824L)
+                .containsEntry("availableBytes", 51311079424L)
+                .containsEntry("usagePercent", 48.5)
+                .doesNotContainKey("disk");
+    }
+
+    @Test
+    void omitsUsagePercentageWhenFilesystemCapacityIsZero() throws Exception {
+        var source = jsonMapper.readTree("""
+                {"name":"empty","mountpoint":"/empty","type":"tmpfs","total-bytes":0,"used-bytes":0}
+                """);
+
+        Map<String,Object> filesystem = ProxmoxInventoryService.safeFilesystemFields(source);
+
+        assertThat(filesystem).containsEntry("totalBytes", 0L)
+                .containsEntry("usedBytes", 0L)
+                .containsEntry("availableBytes", 0L)
+                .doesNotContainKey("usagePercent");
+    }
+
 
     @Test
     void collectedAtIsAnIso8601UtcTimestamp() {

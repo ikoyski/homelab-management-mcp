@@ -304,7 +304,7 @@ public class ProxmoxInventoryService {
             String targetField) {
         JsonNode value = source.get(sourceField);
         if (value != null && value.isNumber()) {
-            target.put(targetField, value.numberValue());
+            target.put(targetField, value.longValue());
         }
     }
 

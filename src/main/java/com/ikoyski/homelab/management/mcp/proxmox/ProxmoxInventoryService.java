@@ -59,7 +59,91 @@ public class ProxmoxInventoryService {
     }
 
     public Map<String,Object> storage() {
-        return sortStorageEntries(collect("/api2/json/cluster/resources?type=storage", STORAGE_FIELDS, null));
+        Map<String,Object> result = collect("/api2/json/cluster/resources?type=storage", STORAGE_FIELDS, null);
+        Object value = result.get("items");
+        if (!"ok".equals(result.get("status")) || !(value instanceof List<?> items)) {
+            return sortStorageEntries(result);
+        }
+
+        List<String> errors = new ArrayList<>();
+        for (Object item : items) {
+            if (item instanceof Map<?,?> entry) {
+                @SuppressWarnings("unchecked")
+                Map<String,Object> storage = (Map<String,Object>) entry;
+                enrichStorageStatus(storage, errors);
+            }
+        }
+        if (!errors.isEmpty()) {
+            result.put("status", "partial");
+            result.put("errors", errors);
+        }
+        return sortStorageEntries(result);
+    }
+
+    private void enrichStorageStatus(Map<String,Object> storage, List<String> errors) {
+        Object storageName = storage.get("storage");
+        Object nodeName = storage.get("node");
+        if (!(storageName instanceof String name) || name.isBlank()
+                || !(nodeName instanceof String node) || node.isBlank()) {
+            String errorCode = "storage_identity_unavailable";
+            storage.put("storageStatus", "unavailable");
+            storage.put("storageError", errorCode);
+            errors.add(String.valueOf(storageName) + ": " + errorCode);
+            return;
+        }
+
+        try {
+            JsonNode response = client.get()
+                    .uri("/api2/json/nodes/{node}/storage/{storage}/status", node, name)
+                    .retrieve().body(JsonNode.class);
+            JsonNode data = response == null ? null : response.get("data");
+            storage.putAll(safeStorageStatusFields(data));
+            storage.put("storageStatus", "ok");
+        } catch (Exception ex) {
+            String errorCode = storageFailureCode(ex);
+            Integer httpStatus = ex instanceof org.springframework.web.client.RestClientResponseException responseException
+                    ? responseException.getStatusCode().value() : null;
+            log.warn("Proxmox storage status request failed node={} storage={} errorCode={} httpStatus={}",
+                    node, name, errorCode, httpStatus);
+            storage.put("storageStatus", "unavailable");
+            storage.put("storageError", errorCode);
+            errors.add(name + ": " + errorCode);
+        }
+    }
+
+    static Map<String,Object> safeStorageStatusFields(JsonNode data) {
+        if (data == null || !data.isObject()) {
+            throw new IllegalStateException("Unexpected Proxmox storage status response shape");
+        }
+
+        Map<String,Object> result = new LinkedHashMap<>();
+        copyTextField(data, result, "type", "storageType");
+        copyNumberField(data, result, "total", "totalBytes");
+        copyNumberField(data, result, "used", "usedBytes");
+        copyNumberField(data, result, "avail", "availableBytes");
+        copyScalarField(data, result, "active");
+        copyScalarField(data, result, "enabled");
+        copyScalarField(data, result, "shared");
+
+        Object total = result.get("totalBytes");
+        Object used = result.get("usedBytes");
+        if (total instanceof Number totalBytes && used instanceof Number usedBytes
+                && totalBytes.longValue() > 0 && usedBytes.longValue() >= 0) {
+            result.put("usagePercent",
+                    Math.round(usedBytes.doubleValue() * 1000.0 / totalBytes.doubleValue()) / 10.0);
+        }
+        return result;
+    }
+
+    static String storageFailureCode(Exception ex) {
+        if (ex instanceof IllegalStateException stateException
+                && "Unexpected Proxmox storage status response shape".equals(stateException.getMessage())) {
+            return "unexpected_response";
+        }
+        if (ex instanceof org.springframework.web.client.RestClientResponseException) {
+            return "storage_status_http_error";
+        }
+        return "storage_status_request_failed";
     }
 
     public Map<String,Object> inventory() {
@@ -205,9 +289,29 @@ public class ProxmoxInventoryService {
     }
 
     private static void copyTextField(JsonNode source, Map<String,Object> target, String field) {
+        copyTextField(source, target, field, field);
+    }
+
+    private static void copyTextField(JsonNode source, Map<String,Object> target, String sourceField,
+            String targetField) {
+        JsonNode value = source.get(sourceField);
+        if (value != null && !value.isNull() && value.isValueNode()) {
+            target.put(targetField, value.asText());
+        }
+    }
+
+    private static void copyNumberField(JsonNode source, Map<String,Object> target, String sourceField,
+            String targetField) {
+        JsonNode value = source.get(sourceField);
+        if (value != null && value.isNumber()) {
+            target.put(targetField, value.longValue());
+        }
+    }
+
+    private static void copyScalarField(JsonNode source, Map<String,Object> target, String field) {
         JsonNode value = source.get(field);
-        if (value != null && !value.isNull()) {
-            target.put(field, value.asText());
+        if (value != null && !value.isNull() && (value.isNumber() || value.isBoolean())) {
+            target.put(field, value.isNumber() ? value.numberValue() : value.booleanValue());
         }
     }
   
@@ -242,6 +346,17 @@ public class ProxmoxInventoryService {
     }
 
     private static void addError(List<String> errors,String name,Map<String,Object> section) {
-        if(!"ok".equals(section.get("status"))) errors.add(name+": "+section.getOrDefault("error","unavailable"));
+        if ("partial".equals(section.get("status"))) {
+            Object sectionErrors = section.get("errors");
+            if (sectionErrors instanceof List<?> details) {
+                for (Object detail : details) {
+                    errors.add(name + ": " + detail);
+                }
+            } else {
+                errors.add(name + ": partial");
+            }
+        } else if (!"ok".equals(section.get("status"))) {
+            errors.add(name + ": " + section.getOrDefault("error","unavailable"));
+        }
     }
 }

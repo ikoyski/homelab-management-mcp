@@ -14,6 +14,20 @@ The service exposes read-only MCP tools for discovering Proxmox nodes, QEMU virt
 | `list_proxmox_storage` | Lists storage and safe capacity/status fields |
 | `get_proxmox_inventory` | Combines nodes, guests, and storage; reports partial failures |
 
+Storage inventory is enriched with a per-node storage status request:
+`GET /api2/json/nodes/{node}/storage/{storage}/status`. The existing resource
+`type` remains unchanged; the Proxmox backend type is exposed separately as
+`storageType`. Capacity is returned in bytes as `totalBytes`, `usedBytes`,
+and `availableBytes`, with `usagePercent` calculated from the reported total
+and used values when total capacity is positive. The Proxmox-reported values
+are preserved rather than deriving available capacity from total minus used.
+
+Each storage entry reports `storageStatus` as `ok` or `unavailable`.
+A failed status request adds a sanitized entry to the storage section's
+`errors` array and changes that section's status to `partial`; other storage
+entries remain available. The backend type and status fields are allowlisted;
+storage paths and other configuration details are not returned.
+
 Docker discovery and all infrastructure-changing operations are outside Release 1.
 
 ## Security boundaries

@@ -112,7 +112,7 @@ class ProxmoxInventoryServiceTest {
 
     @Test
     void rejectsMalformedStorageStatusResponse() throws Exception {
-        var response = jsonMapper.readTree("""["not","an","object"]""");
+        var response = jsonMapper.readTree("[\"not\",\"an\",\"object\"]");
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                 () -> ProxmoxInventoryService.safeStorageStatusFields(response))

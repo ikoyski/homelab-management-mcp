@@ -91,6 +91,58 @@ class ProxmoxInventoryServiceTest {
 
 
     @Test
+    void mapsActualProxmoxGuestAgentResponseEnvelopeToSafeFilesystemFields() throws Exception {
+        var response = jsonMapper.readTree("""
+                {
+                  "data": {
+                    "result": [
+                      {
+                        "name": "sda2",
+                        "mountpoint": "/",
+                        "type": "ext4",
+                        "total-bytes": 99700789248,
+                        "used-bytes": 48474042368,
+                        "disk": [{"serial": "must-not-be-exposed"}]
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        List<Map<String,Object>> filesystems = ProxmoxInventoryService.filesystemEntries(response);
+
+        assertThat(filesystems).hasSize(1);
+        assertThat(filesystems.get(0)).containsEntry("name", "sda2")
+                .containsEntry("mountpoint", "/")
+                .containsEntry("type", "ext4")
+                .containsEntry("totalBytes", 99700789248L)
+                .containsEntry("usedBytes", 48474042368L)
+                .containsEntry("availableBytes", 51226746880L)
+                .doesNotContainKey("disk");
+    }
+
+    @Test
+    void acceptsEmptyGuestAgentFilesystemResult() throws Exception {
+        var response = jsonMapper.readTree("""
+                {"data":{"result":[]}}
+                """);
+
+        assertThat(ProxmoxInventoryService.filesystemEntries(response)).isEmpty();
+    }
+
+    @Test
+    void rejectsGuestAgentResponseWithoutResultArray() throws Exception {
+        var response = jsonMapper.readTree("""
+                {"data":[{"name":"sda2"}]}
+                """);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> ProxmoxInventoryService.filesystemEntries(response))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Unexpected QEMU guest-agent response shape");
+    }
+
+    @Test
     void mapsMissingGuestIdToStableFilesystemErrorCode() {
         assertThat(ProxmoxInventoryService.filesystemFailureCode(
                 new IllegalStateException("QEMU guest ID is unavailable")))

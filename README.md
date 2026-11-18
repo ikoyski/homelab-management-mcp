@@ -28,6 +28,25 @@ A failed status request adds a sanitized entry to the storage section's
 entries remain available. The backend type and status fields are allowlisted;
 storage paths and other configuration details are not returned.
 
+### Metric semantics
+
+The Proxmox `cpu` field is a utilization fraction from `0` to `1` (for example,
+`0.125` means 12.5% of the available CPU capacity). The inventory rounds this
+fraction to six decimal places and keeps it as a decimal fraction; it does not
+convert it to a percentage.
+
+For guest disk fields from `/cluster/resources`, `maxdisk` is the reported
+root/boot disk capacity. The `disk` value is Proxmox's reported used root-image
+space; for QEMU VMs it may remain zero because Proxmox does not know actual
+in-guest filesystem usage from this cluster inventory endpoint. LXC disk
+usage has different reporting behavior. Do not interpret a QEMU `disk: 0`
+as proof that its virtual disk is empty.
+
+For QEMU in-guest filesystem capacity and usage, use the separate `filesystems`
+data collected through the QEMU Guest Agent. Those values describe mounted
+guest filesystems and are not interchangeable with the Proxmox virtual-disk
+fields. The original `disk` and `maxdisk` fields are retained unchanged.
+
 Docker discovery and all infrastructure-changing operations are outside Release 1.
 
 ## Security boundaries

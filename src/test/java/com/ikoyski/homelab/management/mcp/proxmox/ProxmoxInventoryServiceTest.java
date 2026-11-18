@@ -51,6 +51,29 @@ class ProxmoxInventoryServiceTest {
     }
 
     @Test
+    void roundsCpuFractionsToSixDecimalPlacesWithoutScientificNotation() throws Exception {
+        var source = jsonMapper.readTree("""
+                {"cpu":0.000630976679763674}
+                """);
+
+        Map<String,Object> fields = ProxmoxInventoryService.safeFields(source, List.of("cpu"));
+
+        assertThat(fields.get("cpu")).isEqualTo(new java.math.BigDecimal("0.000631"));
+        assertThat(((java.math.BigDecimal) fields.get("cpu")).toPlainString()).isEqualTo("0.000631");
+    }
+
+    @Test
+    void preservesCpuFractionsAsFractionsRatherThanPercentages() throws Exception {
+        var source = jsonMapper.readTree("""
+                {"cpu":0.256789123}
+                """);
+
+        Map<String,Object> fields = ProxmoxInventoryService.safeFields(source, List.of("cpu"));
+
+        assertThat(fields.get("cpu")).isEqualTo(new java.math.BigDecimal("0.256789"));
+    }
+
+    @Test
     void mapsDirectoryStorageStatusToSafeCapacityFields() throws Exception {
         var response = jsonMapper.readTree("""
                 {
@@ -100,14 +123,39 @@ class ProxmoxInventoryServiceTest {
                 {"type":"dir","total":0,"used":0,"avail":0,"active":0,"enabled":1,"shared":0}
                 """);
 
-        Map<String,Object> storage = ProxmoxInventoryService.safeStorageStatusFields(response);
+        Map<String,Object> storage = new LinkedHashMap<>();
+        ProxmoxInventoryService.applyStorageStatus(storage, response);
 
         assertThat(storage).containsEntry("storageType", "dir")
+                .containsEntry("storageStatus", "ok")
+                .containsEntry("active", 0)
                 .containsEntry("totalBytes", 0L)
                 .containsEntry("usedBytes", 0L)
                 .containsEntry("availableBytes", 0L)
-                .containsEntry("active", 0)
                 .doesNotContainKey("usagePercent");
+    }
+
+    @Test
+    void recordsPerStorageFailureAndPropagatesPartialInventoryError() {
+        Map<String,Object> storage = new LinkedHashMap<>();
+        List<String> storageErrors = new java.util.ArrayList<>();
+
+        ProxmoxInventoryService.recordStorageFailure(
+                storage, storageErrors, "hdd-2tb", "storage_status_http_error");
+
+        assertThat(storage).containsEntry("storageStatus", "unavailable")
+                .containsEntry("storageError", "storage_status_http_error");
+        assertThat(storageErrors).containsExactly("hdd-2tb: storage_status_http_error");
+
+        Map<String,Object> storageSection = new LinkedHashMap<>();
+        storageSection.put("status", "partial");
+        storageSection.put("errors", storageErrors);
+        List<String> inventoryErrors = new java.util.ArrayList<>();
+
+        ProxmoxInventoryService.addError(inventoryErrors, "storage", storageSection);
+
+        assertThat(inventoryErrors).containsExactly(
+                "storage: hdd-2tb: storage_status_http_error");
     }
 
     @Test

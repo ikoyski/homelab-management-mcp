@@ -1,8 +1,10 @@
 package com.ikoyski.homelab.management.mcp.proxmox;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -86,9 +88,7 @@ public class ProxmoxInventoryService {
         if (!(storageName instanceof String name) || name.isBlank()
                 || !(nodeName instanceof String node) || node.isBlank()) {
             String errorCode = "storage_identity_unavailable";
-            storage.put("storageStatus", "unavailable");
-            storage.put("storageError", errorCode);
-            errors.add(String.valueOf(storageName) + ": " + errorCode);
+            recordStorageFailure(storage, errors, String.valueOf(storageName), errorCode);
             return;
         }
 
@@ -97,17 +97,14 @@ public class ProxmoxInventoryService {
                     .uri("/api2/json/nodes/{node}/storage/{storage}/status", node, name)
                     .retrieve().body(JsonNode.class);
             JsonNode data = response == null ? null : response.get("data");
-            storage.putAll(safeStorageStatusFields(data));
-            storage.put("storageStatus", "ok");
+            applyStorageStatus(storage, data);
         } catch (Exception ex) {
             String errorCode = storageFailureCode(ex);
             Integer httpStatus = ex instanceof org.springframework.web.client.RestClientResponseException responseException
                     ? responseException.getStatusCode().value() : null;
             log.warn("Proxmox storage status request failed node={} storage={} errorCode={} httpStatus={}",
                     node, name, errorCode, httpStatus);
-            storage.put("storageStatus", "unavailable");
-            storage.put("storageError", errorCode);
-            errors.add(name + ": " + errorCode);
+            recordStorageFailure(storage, errors, name, errorCode);
         }
     }
 
@@ -133,6 +130,18 @@ public class ProxmoxInventoryService {
                     Math.round(usedBytes.doubleValue() * 1000.0 / totalBytes.doubleValue()) / 10.0);
         }
         return result;
+    }
+
+    static void applyStorageStatus(Map<String,Object> storage, JsonNode data) {
+        storage.putAll(safeStorageStatusFields(data));
+        storage.put("storageStatus", "ok");
+    }
+
+    static void recordStorageFailure(Map<String,Object> storage, List<String> errors,
+            String storageName, String errorCode) {
+        storage.put("storageStatus", "unavailable");
+        storage.put("storageError", errorCode);
+        errors.add(storageName + ": " + errorCode);
     }
 
     static String storageFailureCode(Exception ex) {
@@ -252,12 +261,16 @@ public class ProxmoxInventoryService {
     private static String authHeader(Environment env) {
         return "PVEAPIToken="+env.getProperty("homelab.proxmox.token-id","")+"="+env.getProperty("homelab.proxmox.token-secret","");
     }
-    private static Map<String,Object> safeFields(JsonNode node,List<String> fields) {
+    static Map<String,Object> safeFields(JsonNode node,List<String> fields) {
         Map<String,Object> result=new LinkedHashMap<>();
         for(String field:fields) {
             JsonNode value=node.get(field);
             if(value!=null&&!value.isNull()) {
                 Object safeValue=value.isNumber()?value.numberValue():value.isBoolean()?value.booleanValue():value.asText();
+                if ("cpu".equals(field) && value.isNumber()) {
+                    // Proxmox reports CPU as a 0..1 fraction; BigDecimal keeps small values readable in JSON.
+                    safeValue = value.decimalValue().setScale(6, RoundingMode.HALF_UP);
+                }
                 if("content".equals(field) && safeValue instanceof String content) {
                     safeValue=sortContentTypes(content);
                 }
@@ -345,7 +358,7 @@ public class ProxmoxInventoryService {
         return result;
     }
 
-    private static void addError(List<String> errors,String name,Map<String,Object> section) {
+    static void addError(List<String> errors,String name,Map<String,Object> section) {
         if ("partial".equals(section.get("status"))) {
             Object sectionErrors = section.get("errors");
             if (sectionErrors instanceof List<?> details) {

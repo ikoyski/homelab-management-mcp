@@ -91,6 +91,29 @@ class ProxmoxInventoryServiceTest {
 
 
     @Test
+    void mapsMissingGuestIdToStableFilesystemErrorCode() {
+        assertThat(ProxmoxInventoryService.filesystemFailureCode(
+                new IllegalStateException("QEMU guest ID is unavailable")))
+                .isEqualTo("guest_id_unavailable");
+    }
+
+    @Test
+    void mapsUnexpectedAgentResponseToStableFilesystemErrorCode() {
+        assertThat(ProxmoxInventoryService.filesystemFailureCode(
+                new IllegalStateException("Unexpected QEMU guest-agent response shape")))
+                .isEqualTo("unexpected_response");
+    }
+
+    @Test
+    void mapsOtherFilesystemFailuresToGenericStableErrorCode() {
+        assertThat(ProxmoxInventoryService.filesystemFailureCode(
+                new IllegalStateException("internal implementation detail")))
+                .isEqualTo("guest_filesystem_request_failed");
+        assertThat(ProxmoxInventoryService.filesystemFailureCode(new RuntimeException("failure")))
+                .isEqualTo("guest_filesystem_request_failed");
+    }
+
+    @Test
     void collectedAtIsAnIso8601UtcTimestamp() {
         assertThat(Instant.parse(ProxmoxInventoryService.collectedAt())).isNotNull();
     }

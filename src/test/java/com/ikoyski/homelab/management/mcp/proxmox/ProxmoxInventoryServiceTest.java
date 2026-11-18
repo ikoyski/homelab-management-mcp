@@ -123,14 +123,40 @@ class ProxmoxInventoryServiceTest {
                 {"type":"dir","total":0,"used":0,"avail":0,"active":0,"enabled":1,"shared":0}
                 """);
 
-        Map<String,Object> storage = ProxmoxInventoryService.safeStorageStatusFields(response);
+        Map<String,Object> storage = new LinkedHashMap<>();
+        ProxmoxInventoryService.applyStorageStatus(storage, response);
 
         assertThat(storage).containsEntry("storageType", "dir")
+                .containsEntry("storageStatus", "ok")
+                .containsEntry("active", 0)
                 .containsEntry("totalBytes", 0L)
                 .containsEntry("usedBytes", 0L)
                 .containsEntry("availableBytes", 0L)
                 .containsEntry("active", 0)
                 .doesNotContainKey("usagePercent");
+    }
+
+    @Test
+    void recordsPerStorageFailureAndPropagatesPartialInventoryError() {
+        Map<String,Object> storage = new LinkedHashMap<>();
+        List<String> storageErrors = new java.util.ArrayList<>();
+
+        ProxmoxInventoryService.recordStorageFailure(
+                storage, storageErrors, "hdd-2tb", "storage_status_http_error");
+
+        assertThat(storage).containsEntry("storageStatus", "unavailable")
+                .containsEntry("storageError", "storage_status_http_error");
+        assertThat(storageErrors).containsExactly("hdd-2tb: storage_status_http_error");
+
+        Map<String,Object> storageSection = new LinkedHashMap<>();
+        storageSection.put("status", "partial");
+        storageSection.put("errors", storageErrors);
+        List<String> inventoryErrors = new java.util.ArrayList<>();
+
+        ProxmoxInventoryService.addError(inventoryErrors, "storage", storageSection);
+
+        assertThat(inventoryErrors).containsExactly(
+                "storage: hdd-2tb: storage_status_http_error");
     }
 
     @Test

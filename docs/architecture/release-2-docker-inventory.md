@@ -1,5 +1,7 @@
 # Release 2 — Docker read-only inventory
 
+> Current implementation state and next actions: [Project Status](../PROJECT-STATUS.md). This document is the detailed Release 2 design.
+
 ## Scope
 
 Release 2 adds read-only Docker discovery to the existing Homelab Management MCP. It complements Release 1 (Proxmox inventory) and does not replace or change the Proxmox adapter.
@@ -251,8 +253,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 8. Test an unavailable Agent and confirm the other environments still return results.
 9. Run Maven tests and inspect CI output.
 10. Confirm no write-capable tools are advertised and no secrets, environment variables, labels, logs, or raw inspect payloads appear in tool output or logs.
-11. After a supported Portainer Server and Agent upgrade, repeat the same tests and verify all five environments, inventory semantics, partial-failure handling, and Agent recovery; record versions and results.
-11. Validate compatibility after a supported Portainer Server and Agent upgrade using the same MCP tests; confirm no application code change is needed for a backward-compatible upgrade.
+11. After a supported Portainer Server and Agent upgrade, repeat the same tests and verify all five environments, inventory semantics, partial-failure handling, and Agent recovery; record versions and results. A backward-compatible upgrade should not require an MCP code change.
 12. Deploy only after CI passes and explicit approval; verify through an authenticated MCP client.
 
 ## Out of scope

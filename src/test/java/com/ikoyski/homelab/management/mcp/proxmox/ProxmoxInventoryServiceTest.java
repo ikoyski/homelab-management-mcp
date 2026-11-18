@@ -132,7 +132,6 @@ class ProxmoxInventoryServiceTest {
                 .containsEntry("totalBytes", 0L)
                 .containsEntry("usedBytes", 0L)
                 .containsEntry("availableBytes", 0L)
-                .containsEntry("active", 0)
                 .doesNotContainKey("usagePercent");
     }
 

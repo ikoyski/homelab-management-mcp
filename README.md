@@ -2,6 +2,14 @@
 
 A read-only-first Model Context Protocol (MCP) server for discovering and monitoring a private homelab. This repository is public; runtime endpoints, credentials, private keys, and sensitive infrastructure details must remain outside Git.
 
+## Project status and continuity
+
+The canonical project handoff is [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md). Read it before starting implementation or continuing work in a new conversation. It records verified release status, open prerequisites, decisions, and next steps.
+
+- [Architecture decision records](docs/architecture/decisions/) explain important accepted design and security decisions.
+- [Changelog](docs/CHANGELOG.md) records notable project milestones.
+- [CLAUDE.md](CLAUDE.md) contains mandatory engineering and security instructions for coding agents.
+
 ## Current release: Release 1 — Proxmox inventory
 
 The service exposes read-only MCP tools for discovering Proxmox nodes, QEMU virtual machines, LXC containers, and storage. Guest and node names are discovered dynamically from Proxmox; they are not hardcoded.
@@ -92,14 +100,9 @@ An unauthenticated request to the protected `/mcp` endpoint is expected to retur
 
 ## Current Release 1 verification status
 
-As of 2026-11-17, the following homelab-side checks have been observed:
+As of 2026-11-17, Release 1 is implemented and deployed on the homelab. The five Proxmox tools were exercised through an authenticated MCP client; the combined inventory returned all expected sections with no reported errors. A subsequent natural-language status check through Claude successfully summarized the Proxmox node, six guests, guest filesystem metrics, and storage metrics.
 
-- Proxmox API HTTPS request with the CA bundle returned HTTP 401 when unauthenticated, confirming TLS validation and reachability.
-- A Proxmox API token request to the nodes endpoint returned HTTP 200.
-- The mounted Java truststore contains the `proxmox-cluster-ca` trusted certificate entry, and `keytool` can read it.
-- The MCP container starts with the custom truststore configured.
-- The local protected `/mcp` endpoint returns the expected OAuth 401 challenge.
-- End-to-end MCP tool invocation through an AI client remains pending after the TLS fix. Do not mark the four inventory tools as end-to-end verified until they return real inventory through MCP.
+This is an observed homelab validation result, not a claim that every possible failure mode or every AI client has been exhaustively tested. See [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the latest handoff and remaining work.
 
 ## Technology
 
@@ -145,7 +148,7 @@ The Config Server must be reachable using protected bootstrap settings supplied 
 
 ## Future releases
 
-- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. The design excludes shared-pve, keeps the MCP inventory model independent of Portainer, and requires regression testing after supported Portainer Server/Agent upgrades.
+- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. The design excludes shared-pve, keeps the MCP inventory model independent of Portainer, and requires regression testing after supported Portainer Server/Agent upgrades. **Implementation has not started.**
 - Later releases: separately designed, explicitly authorized operational actions with approval and audit controls.
 
 Future write-capable tools must be separate from discovery tools and enforced server-side. Destructive actions must never be bundled into general inventory operations.

@@ -11,6 +11,15 @@ No per-guest host list is required. No SSH, Docker socket, shell execution, or g
 - `GET /api2/json/nodes` — node inventory.
 - `GET /api2/json/cluster/resources?type=vm` — QEMU and LXC guest inventory.
 - `GET /api2/json/cluster/resources?type=storage` — storage inventory.
+- `GET /api2/json/nodes/{node}/storage/{storage}/status` — capacity and status enrichment for each discovered storage entry.
+
+Storage status exposes the backend as `storageType`, while preserving the
+cluster-resource `type` field. Reported `total`, `used`, and `avail` values
+are mapped to byte fields without recalculating them. `usagePercent` is
+calculated only when a positive total is available. Individual status-request
+failures mark only the affected storage entry unavailable, retain other
+entries, and are included in the storage section's sanitized `errors` list.
+
 
 The adapter extracts explicit safe fields and does not return raw API payloads. A failure in one section does not suppress successful sections; combined inventory is marked partial and includes a sanitized error summary.
 

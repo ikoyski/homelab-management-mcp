@@ -26,6 +26,20 @@ Build a private-homelab discovery and management MCP server. Start with read-onl
 
 Release 1 uses the Proxmox VE HTTPS API as the authoritative inventory source. It discovers cluster nodes, QEMU VMs, LXC containers and storage through the Proxmox API; it does not connect to each guest or host over SSH. The `homelab.discovery.targets` list is read and returned as sanitized informational labels by `get_discovery_scope`; it is not an SSH target list, endpoint list or authorization boundary. The configured `homelab.discovery.mode` property is not currently read; the tool hardcodes `read-only` in its response. Never infer or hardcode guest names, VMIDs, addresses or credentials.
 
+## Release 2 target model
+
+Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff and [docs/architecture/release-2-docker-inventory.md](docs/architecture/release-2-docker-inventory.md) for the full design before implementing Docker support.
+
+- Connect only to the single Portainer Server; do not connect directly to Portainer Agents or Docker Engines.
+- Keep the Portainer adapter separate from application-owned Docker inventory models and MCP DTOs.
+- Discover Portainer environment IDs at runtime; match environments against the server-side allowlist. Never accept caller-supplied endpoint IDs, URLs, API paths, or commands.
+- Include only the five approved environments: util-pve, dev-pve, earn-pve, media-pve, and ncloud-pve. Exclude shared-pve.
+- Do not enable integration against the historical Portainer CE 2.39.6 installation. First verify a currently supported, security-patched, mutually compatible Server/Agent release.
+- Establish and test a server-enforced read-only permission boundary. GET-only application behavior is not sufficient. If Portainer CE cannot enforce the needed restriction, use the fixed-operation private read-only proxy described in the architecture.
+- Preserve TLS certificate and hostname/IP verification. Trust the self-signed certificate correctly; never use trust-all TLS or insecure HTTP.
+- Isolate per-environment failures. One unavailable Agent must not suppress results from other environments.
+- Return only allowlisted host/container/network fields. Never return environment variables, secrets, labels, commands, mounts, logs, raw inspect payloads, or arbitrary metadata.
+- No Docker write operations, container exec, Docker socket mount, or direct remote Docker TCP access in Release 2.
 
 ## Implementation expectations
 - Validate all tool inputs.
@@ -50,6 +64,15 @@ Release 1 uses the Proxmox VE HTTPS API as the authoritative inventory source. I
 ## AI client integration status
 
 The Auth Server pre-registers provider-specific Homelab clients. A client registration existing in Config Server does not prove that the provider completed OAuth, MCP initialization or tool execution. Keep a dated test matrix in the private deployment runbook and mark each stage separately: OAuth authorization, MCP initialize/list-tools, and authenticated tool calls. Do not claim Gemini/Grok/Claude end-to-end compatibility without real tool results. The current Homelab MCP source exposes the modern MCP Servlet transport at `/mcp`; do not assume it has the Kanban MCP service's separate legacy transport.
+
+## Documentation and continuity workflow
+
+- Treat `docs/PROJECT-STATUS.md` as the canonical project handoff and current status. Update it when milestones, open prerequisites, decisions, or deployment state change.
+- Record durable architecture choices in `docs/architecture/decisions/` using numbered ADRs. Do not silently reverse an accepted decision; add a superseding ADR with rationale.
+- Add notable milestones to `docs/CHANGELOG.md`.
+- Keep README.md as the concise public overview and link to detailed documents rather than duplicating all design details.
+- At the start of a continuation, read PROJECT-STATUS, this file, README, and the relevant architecture/decision documents. Verify GitHub PR/commit/CI state and actual deployment state; repository docs do not prove a deployment occurred.
+- Distinguish proposed, implemented, merged, CI-verified, and deployed work. Never claim a test or deployment succeeded without evidence.
 
 ## Development workflow
 - Build and test with Maven and Java 21.

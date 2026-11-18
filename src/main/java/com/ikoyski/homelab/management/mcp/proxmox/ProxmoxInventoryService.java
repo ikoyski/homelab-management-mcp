@@ -53,6 +53,8 @@ public class ProxmoxInventoryService {
                 }
             }
         }
+        // Include QEMU filesystem enrichment in this section's collection duration.
+        result.put("collectedAt", collectedAt());
         return result;
     }
 
@@ -98,13 +100,30 @@ public class ProxmoxInventoryService {
             guest.put("filesystemStatus", "ok");
             guest.put("filesystems", filesystems);
         } catch (Exception ex) {
-            log.warn("Proxmox guest filesystem request failed node={} vmid={} cause={}",
-                    node, vmid, ex.getClass().getSimpleName());
+            String errorCode = filesystemFailureCode(ex);
+            Integer httpStatus = ex instanceof org.springframework.web.client.RestClientResponseException responseException
+                    ? responseException.getStatusCode().value() : null;
+            log.warn("Proxmox guest filesystem request failed node={} vmid={} errorCode={} httpStatus={}",
+                    node, vmid, errorCode, httpStatus);
             guest.put("filesystemStatus", "unavailable");
             guest.put("filesystems", List.of());
-            guest.put("filesystemError", "Guest filesystem information unavailable (" +
-                    ex.getClass().getSimpleName() + ")");
+            guest.put("filesystemError", errorCode);
         }
+    }
+
+    static String filesystemFailureCode(Exception ex) {
+        if (ex instanceof IllegalStateException stateException) {
+            if ("QEMU guest ID is unavailable".equals(stateException.getMessage())) {
+                return "guest_id_unavailable";
+            }
+            if ("Unexpected QEMU guest-agent response shape".equals(stateException.getMessage())) {
+                return "unexpected_response";
+            }
+        }
+        if (ex instanceof org.springframework.web.client.RestClientResponseException) {
+            return "guest_agent_http_error";
+        }
+        return "guest_filesystem_request_failed";
     }
 
     private Map<String,Object> collect(String path,List<String> fields,Predicate<Map<String,Object>> filter) {

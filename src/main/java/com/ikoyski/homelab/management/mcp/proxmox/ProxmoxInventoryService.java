@@ -87,13 +87,7 @@ public class ProxmoxInventoryService {
             }
             String path = "/api2/json/nodes/{node}/qemu/{vmid}/agent/get-fsinfo";
             JsonNode response = client.get().uri(path, node, vmid).retrieve().body(JsonNode.class);
-            JsonNode data = response == null ? null : response.get("data");
-            if (data == null || !data.isArray()) {
-                throw new IllegalStateException("Unexpected QEMU guest-agent response shape");
-            }
-            for (JsonNode entry : data) {
-                filesystems.add(safeFilesystemFields(entry));
-            }
+            filesystems.addAll(filesystemEntries(response));
             filesystems.sort(Comparator
                     .comparing((Map<String,Object> fs) -> String.valueOf(fs.getOrDefault("mountpoint", "")))
                     .thenComparing(fs -> String.valueOf(fs.getOrDefault("name", ""))));
@@ -109,6 +103,20 @@ public class ProxmoxInventoryService {
             guest.put("filesystems", List.of());
             guest.put("filesystemError", errorCode);
         }
+    }
+
+    static List<Map<String,Object>> filesystemEntries(JsonNode response) {
+        JsonNode data = response == null ? null : response.get("data");
+        JsonNode result = data == null ? null : data.get("result");
+        if (result == null || !result.isArray()) {
+            throw new IllegalStateException("Unexpected QEMU guest-agent response shape");
+        }
+
+        List<Map<String,Object>> filesystems = new ArrayList<>();
+        for (JsonNode entry : result) {
+            filesystems.add(safeFilesystemFields(entry));
+        }
+        return filesystems;
     }
 
     static String filesystemFailureCode(Exception ex) {

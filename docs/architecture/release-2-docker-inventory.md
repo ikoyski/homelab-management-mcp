@@ -83,6 +83,33 @@ References:
 
 Do not deploy or enable the adapter against the currently reported 2.39.6 installation.
 
+
+## Portainer upgrade compatibility
+
+Portainer is the initial Docker discovery transport, but the MCP inventory contract must not be coupled to a single Portainer release. Release 2 must demonstrate that a supported, compatible Portainer Server and Agent upgrade does not require changes to the MCP application for ordinary backward-compatible API changes.
+
+The initial integration baseline is the operator-reported Portainer CE **2.39.6 LTS** installation. This is a historical baseline for comparison only; it is not an approved deployment target. The security prerequisite above remains in force: do not enable the MCP integration against this version. Before integration validation, upgrade the Server and all Agents to a currently supported, security-patched, mutually compatible release.
+
+### Upgrade validation procedure
+
+1. Before upgrading, record the Portainer Server version, each Agent version, the five environment names and connection states, and representative inventory results from the same MCP build where it is safe to run the baseline. If the old version is not safe for integration testing, capture only the Portainer UI/environment baseline and perform MCP testing after the security upgrade.
+2. Back up Portainer data and record the current deployment configuration using the operator's normal maintenance procedure.
+3. Upgrade the Portainer Server first, then upgrade the Agents to the matching compatible release, following the official upgrade guidance for that release.
+4. Confirm that all five configured environments reconnect and that their environment identities still map to the expected Proxmox guests.
+5. Run the same MCP integration and regression tests against the upgraded Server and Agents. Compare host availability, Docker Engine information, container state/health/restart/uptime, networks, and published-port results with the expected inventory. Differences caused by legitimate workload changes must be distinguished from API compatibility regressions.
+6. Exercise partial-failure behavior by making a test Agent unavailable in a controlled maintenance window, verify the other environments still return inventory, then restore the Agent and verify recovery.
+7. Record Server and Agent versions, test results, any API response differences, and whether an MCP code/configuration change was required.
+
+The upgrade test passes when the upgraded Portainer Server and Agents support the documented API operations, all five configured environments are discovered and correctly mapped, inventory fields retain their documented semantics, and a single unavailable Agent does not suppress results from other environments. A compatible upgrade should not require an MCP code change. If Portainer introduces a breaking API change, treat it as an explicit adapter compatibility update with fixtures and regression tests; do not silently weaken validation or expose raw Portainer payloads.
+
+Repeat this procedure for future Portainer upgrades. Check the release notes, security advisories, API documentation, and Server/Agent compatibility guidance before each upgrade. Keep Server and Agents on mutually compatible supported versions, and retain the last known-good MCP test results for comparison.
+
+References:
+- [Portainer upgrade instructions](https://docs.portainer.io/start/upgrade)
+- [Portainer releases](https://github.com/portainer/portainer/releases)
+- [Portainer API documentation](https://docs.portainer.io/api/docs)
+
+
 ## Authentication and authorization boundary
 
 Portainer API access tokens inherit the permissions of the Portainer user that created them. An API token is not intrinsically read-only merely because this application intends to issue GET requests.
@@ -199,7 +226,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 
 ## Implementation sequence
 
-1. Upgrade and verify Portainer Server and Agents on a supported patched release.
+1. Upgrade and verify Portainer Server and Agents on a supported patched release; retain the pre-upgrade environment baseline.
 2. Decide and test the enforceable read-only API access boundary for Portainer CE.
 3. Provision and verify Java TLS trust for the self-signed Portainer certificate.
 4. Add private configuration and the Portainer transport adapter.
@@ -224,7 +251,9 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 8. Test an unavailable Agent and confirm the other environments still return results.
 9. Run Maven tests and inspect CI output.
 10. Confirm no write-capable tools are advertised and no secrets, environment variables, labels, logs, or raw inspect payloads appear in tool output or logs.
-11. Deploy only after CI passes and explicit approval; verify through an authenticated MCP client.
+11. After a supported Portainer Server and Agent upgrade, repeat the same tests and verify all five environments, inventory semantics, partial-failure handling, and Agent recovery; record versions and results.
+11. Validate compatibility after a supported Portainer Server and Agent upgrade using the same MCP tests; confirm no application code change is needed for a backward-compatible upgrade.
+12. Deploy only after CI passes and explicit approval; verify through an authenticated MCP client.
 
 ## Out of scope
 

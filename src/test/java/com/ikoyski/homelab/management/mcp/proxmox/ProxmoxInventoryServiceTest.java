@@ -51,6 +51,85 @@ class ProxmoxInventoryServiceTest {
     }
 
     @Test
+    void mapsDirectoryStorageStatusToSafeCapacityFields() throws Exception {
+        var response = jsonMapper.readTree("""
+                {
+                  "type": "dir",
+                  "total": 1967846068224,
+                  "used": 906400428032,
+                  "avail": 961408970752,
+                  "active": 1,
+                  "enabled": 1,
+                  "shared": 0,
+                  "path": "/must-not-be-exposed",
+                  "content": "must-not-be-exposed"
+                }
+                """);
+
+        Map<String,Object> storage = ProxmoxInventoryService.safeStorageStatusFields(response);
+
+        assertThat(storage).containsEntry("storageType", "dir")
+                .containsEntry("totalBytes", 1967846068224L)
+                .containsEntry("usedBytes", 906400428032L)
+                .containsEntry("availableBytes", 961408970752L)
+                .containsEntry("active", 1)
+                .containsEntry("enabled", 1)
+                .containsEntry("shared", 0)
+                .containsEntry("usagePercent", 46.1)
+                .doesNotContainKeys("type", "path", "content");
+    }
+
+    @Test
+    void mapsLvmThinStorageWithoutInventingUsage() throws Exception {
+        var response = jsonMapper.readTree("""
+                {"type":"lvmthin","total":52978253824,"used":0,"avail":52978253824,"active":1,"enabled":1,"shared":0}
+                """);
+
+        Map<String,Object> storage = ProxmoxInventoryService.safeStorageStatusFields(response);
+
+        assertThat(storage).containsEntry("storageType", "lvmthin")
+                .containsEntry("totalBytes", 52978253824L)
+                .containsEntry("usedBytes", 0L)
+                .containsEntry("availableBytes", 52978253824L)
+                .containsEntry("usagePercent", 0.0);
+    }
+
+    @Test
+    void preservesInactiveStorageAndOmitsUsageWhenCapacityIsZero() throws Exception {
+        var response = jsonMapper.readTree("""
+                {"type":"dir","total":0,"used":0,"avail":0,"active":0,"enabled":1,"shared":0}
+                """);
+
+        Map<String,Object> storage = ProxmoxInventoryService.safeStorageStatusFields(response);
+
+        assertThat(storage).containsEntry("storageType", "dir")
+                .containsEntry("totalBytes", 0L)
+                .containsEntry("usedBytes", 0L)
+                .containsEntry("availableBytes", 0L)
+                .containsEntry("active", 0)
+                .doesNotContainKey("usagePercent");
+    }
+
+    @Test
+    void rejectsMalformedStorageStatusResponse() throws Exception {
+        var response = jsonMapper.readTree("""["not","an","object"]""");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> ProxmoxInventoryService.safeStorageStatusFields(response))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Unexpected Proxmox storage status response shape");
+    }
+
+    @Test
+    void mapsStorageStatusFailuresToStableErrorCodes() {
+        assertThat(ProxmoxInventoryService.storageFailureCode(
+                new IllegalStateException("Unexpected Proxmox storage status response shape")))
+                .isEqualTo("unexpected_response");
+        assertThat(ProxmoxInventoryService.storageFailureCode(new RuntimeException("private detail")))
+                .isEqualTo("storage_status_request_failed");
+    }
+
+    @Test
     void mapsGuestFilesystemUsageToSafeStableFields() throws Exception {
         var source = jsonMapper.readTree("""
                 {

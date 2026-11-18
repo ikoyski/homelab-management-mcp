@@ -88,7 +88,9 @@ class ProxmoxInventoryServiceTest {
                 .containsEntry("availableBytes", 0L)
                 .doesNotContainKey("usagePercent");
     }
-}
+
+
+    @Test
     void collectedAtIsAnIso8601UtcTimestamp() {
         assertThat(Instant.parse(ProxmoxInventoryService.collectedAt())).isNotNull();
     }

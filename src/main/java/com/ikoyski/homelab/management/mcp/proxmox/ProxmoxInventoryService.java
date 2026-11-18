@@ -1,10 +1,10 @@
 package com.ikoyski.homelab.management.mcp.proxmox;
 
-import java.time.Duration;
-import java.math.RoundingMode;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.math.RoundingMode;
 import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;

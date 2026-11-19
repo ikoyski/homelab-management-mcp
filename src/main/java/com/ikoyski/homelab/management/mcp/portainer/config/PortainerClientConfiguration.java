@@ -1,6 +1,6 @@
 package com.ikoyski.homelab.management.mcp.portainer.config;
 
-import com.ikoyski.homelab.management.mcp.portainer.upstream.ResponseSizeLimitInterceptor;
+import com.ikoyski.homelab.management.mcp.portainer.client.ResponseSizeLimitInterceptor;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

@@ -1,4 +1,4 @@
-package com.ikoyski.homelab.management.mcp.portainer.upstream;
+package com.ikoyski.homelab.management.mcp.portainer.client;
 
 import tools.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;

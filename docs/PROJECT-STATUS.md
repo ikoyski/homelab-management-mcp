@@ -12,6 +12,7 @@
 |---|---|---|
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; live inventory was exercised through an authenticated MCP client. |
 | Claude Code client integration | Validated | OAuth, MCP connection/tool discovery, authenticated Proxmox tool use, and a live-inventory natural-language report succeeded on 2026-11-19. |
+| Grok client integration | Validated | Grok connected to the deployed MCP and successfully queried live Proxmox inventory, returning node, guest, and storage details on 2026-11-19. Docker tools were not tested. |
 | Release 2 — Docker inventory | Initial modular-monolith implementation in progress | Portainer client, TLS-aware configuration, response-size limiting, endpoint resolver, Docker inventory adapter/models, and four MCP tools have been added on the feature branch. Build/tests and runtime configuration are not yet verified. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture. Its reusable client, TLS, response-size-limit, endpoint-discovery, allowlist, and test code will be selectively ported into the MCP. |
@@ -31,7 +32,7 @@ The deployed service provides these read-only tools:
 
 Completed work includes Proxmox node/guest/storage inventory, storage capacity metrics, QEMU guest filesystem metrics through the Guest Agent, safe failure diagnostics, stable response semantics, and partial-failure handling.
 
-The latest live validation confirmed all five tools working and the combined inventory returning no errors, including all six guests. Claude Code has successfully completed the Webtools OAuth flow, connected to the Homelab MCP, discovered/used its tools, and produced a natural-language report from live Proxmox inventory data. This validates the Claude Code client path; it does not imply Docker inventory is implemented.
+The latest live validation confirmed all five tools working and the combined inventory returning no errors, including all six guests. Claude Code and Grok both successfully queried the deployed Homelab MCP on 2026-11-19. Claude Code completed Webtools OAuth authorization, discovered/used the Proxmox tools, and produced a natural-language report from live inventory. Grok returned live node, guest, and storage details. These results validate the observed Release 1 client paths; they do not imply Docker inventory has been validated.
 
 Important metric semantics:
 
@@ -90,9 +91,13 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 - Exercise one controlled Agent outage and recovery; other environments must continue returning data.
 - Record results. A backward-compatible upgrade should not require MCP code changes; a breaking API change requires explicit adapter compatibility work and regression tests.
 
-## Claude Code client validation
+## AI client validation
 
-**Validated 2026-11-19:** Claude Code successfully completed OAuth authorization against the Webtools Auth Server and connected to the deployed Homelab Management MCP. It was able to use the Proxmox inventory tools and produce a natural-language summary from the returned live inventory. This confirms the Claude Code OAuth/client integration path is working. Keep OAuth authorization, MCP initialization/tool discovery, and authenticated tool execution as distinct validation stages for future clients; a client registration alone is not proof of end-to-end operation.
+**Claude Code — validated 2026-11-19:** Claude Code successfully completed OAuth authorization against the Webtools Auth Server and connected to the deployed Homelab Management MCP. It used the Proxmox inventory tools and produced a natural-language summary from live inventory.
+
+**Grok — validated 2026-11-19:** Grok successfully connected to the deployed Homelab MCP and queried live Proxmox inventory. Its response included the Proxmox node, all six guests, and storage details. This confirms the observed Grok MCP/tool-execution path for Release 1. The Grok test did not exercise Docker inventory tools.
+
+Keep OAuth authorization, MCP initialization/tool discovery, and authenticated tool execution as distinct validation stages for future clients; a client registration alone is not proof of end-to-end operation. Do not infer compatibility for Gemini or other untested clients.
 
 ## Decisions and constraints
 
@@ -112,6 +117,7 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 - 2026-11-19 — ADR-0003 accepted: use a modular monolith with separate MCP inbound, Proxmox, Portainer, and inventory application/domain modules.
 - 2026-11-19 — Homelab Portainer Proxy PR #5 closed unmerged; separate proxy approach abandoned.
 - 2026-11-19 — Claude Code OAuth and live Proxmox MCP tool execution validated.
+- 2026-11-19 — Grok connection and live Proxmox inventory query validated; Docker inventory was not tested.
 - 2026-11-19 — Portainer Server and all four Agents upgraded to CE 2.45.4; all five environments reconnected.
 - 2026-11-19 — Portainer client/configuration, response-size limiter, dynamic endpoint resolver, inventory mapping, application use case, and four Docker MCP tool registrations added on the feature branch. Automated build/test verification remains outstanding.
 

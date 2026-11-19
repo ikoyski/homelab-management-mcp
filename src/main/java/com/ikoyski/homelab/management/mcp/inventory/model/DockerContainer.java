@@ -12,14 +12,14 @@ public record DockerContainer(
         String state,
         String status,
         String health,
-        int restartCount,
+        Integer restartCount,
         Instant createdAt,
         Instant startedAt,
         Long uptimeSeconds,
         List<String> networks,
         List<PublishedPort> publishedPorts) {
     public DockerContainer {
-        if (restartCount < 0) {
+        if (restartCount != null && restartCount < 0) {
             throw new IllegalArgumentException("restartCount must not be negative");
         }
         if (uptimeSeconds != null && uptimeSeconds < 0) {

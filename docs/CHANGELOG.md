@@ -5,17 +5,17 @@ Notable project changes are recorded here in reverse chronological order. This i
 ## 2026-11-19
 
 ### Validated
-- Claude Code successfully completed Webtools OAuth authorization, connected to the deployed Homelab Management MCP, discovered/used the Proxmox inventory tools, and generated a natural-language report from live inventory data.
+- Claude Code successfully completed Webtools OAuth authorization, connected to the deployed Homelab Management MCP, discovered and used the Proxmox inventory tools, and generated a natural-language report from live inventory data.
 - Upgraded Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, `ncloud-pve`) to Portainer CE 2.45.4. All five environments reconnected and were confirmed Up/reporting resources.
 - Docker Engine versions observed during the Portainer upgrade validation: 28.4.0 on local `util-pve`; 29.1.3 on the four remote Agent-managed environments.
 
 ### Added
-- Created the separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository with its initial Java/Spring skeleton, placeholder packages, proposed proxy design, and local Maven build reported successful. No proxy functionality or Portainer connectivity is claimed.
+- Created the separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository with an initial Java/Spring Boot skeleton, project documentation, and a proposed fixed-operation read-only proxy ADR. Its README reports a successful initial local Maven build.
 
 ### Still outstanding for Release 2
-- The server-enforced read-only boundary is not yet implemented/verified. The planned private fixed-operation GET-only proxy remains required unless Portainer CE permissions are proven sufficient.
+- Proxy functionality and the server-enforced read-only boundary are not implemented or verified. The proxy must expose only fixed inventory operations, reject non-GET methods, unknown paths and unapproved query parameters, and prevent MCP-to-Portainer bypass.
 - Java trust for the self-signed Portainer certificate must be provisioned and verified without disabling TLS certificate or hostname checks.
-- Docker inventory adapter implementation has not started.
+- Docker inventory adapter and MCP tool implementation have not started.
 
 ## 2026-11-17
 

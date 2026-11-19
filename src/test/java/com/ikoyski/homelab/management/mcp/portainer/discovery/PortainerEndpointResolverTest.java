@@ -89,7 +89,7 @@ class PortainerEndpointResolverTest {
                 3000,
                 8000,
                 2048,
-                new PortainerProperties.Environments(List.of(hostKeys)));
+                new PortainerProperties.Environments(List.of("util-pve", "dev-pve", "earn-pve", "media-pve", "ncloud-pve")));
         return new PortainerEndpointResolver(client, properties);
     }
 }

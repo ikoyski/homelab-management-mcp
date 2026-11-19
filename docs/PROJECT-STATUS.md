@@ -12,7 +12,7 @@
 |---|---|---|
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; live inventory was exercised through an authenticated MCP client. |
 | Claude Code client integration | Validated | OAuth, MCP connection/tool discovery, authenticated Proxmox tool use, and a live-inventory natural-language report succeeded on 2026-11-19. |
-| Release 2 — Docker inventory | Architecture documented; MCP implementation not started | Modular-monolith implementation is now the selected approach; see ADR-0003. |
+| Release 2 — Docker inventory | Initial modular-monolith implementation in progress | Portainer client, TLS-aware configuration, response-size limiting, endpoint resolver, Docker inventory adapter/models, and four MCP tools have been added on the feature branch. Build/tests and runtime configuration are not yet verified. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture. Its reusable client, TLS, response-size-limit, endpoint-discovery, allowlist, and test code will be selectively ported into the MCP. |
 | Enforceable read-only Portainer access | Open implementation prerequisite | Implement and test a dedicated Portainer adapter exposing only fixed GET operations, with no generic path forwarding or caller-controlled endpoint IDs. |
@@ -113,16 +113,16 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 - 2026-11-19 — Homelab Portainer Proxy PR #5 closed unmerged; separate proxy approach abandoned.
 - 2026-11-19 — Claude Code OAuth and live Proxmox MCP tool execution validated.
 - 2026-11-19 — Portainer Server and all four Agents upgraded to CE 2.45.4; all five environments reconnected.
-- 2026-11-19 — Initial Portainer adapter foundation and application-owned Docker inventory models added to the modular-monolith branch; implementation and verification remain in progress.
+- 2026-11-19 — Portainer client/configuration, response-size limiter, dynamic endpoint resolver, inventory mapping, application use case, and four Docker MCP tool registrations added on the feature branch. Automated build/test verification remains outstanding.
 
 ## Recommended next work
 
-1. Establish the modular-monolith package boundaries and application-owned Docker inventory models.
-2. Port the required Portainer HTTP client, response-size limiter, TLS configuration approach, endpoint resolver, and relevant tests into the dedicated Portainer infrastructure module.
-3. Implement strict fixed GET-only operations, dynamic endpoint discovery, exact environment allowlisting, and sensitive-field exclusion.
-4. Configure and verify TLS trust from the MCP runtime to Portainer; preserve certificate-chain and hostname/IP verification.
-5. Implement host, container, network, and combined inventory use cases incrementally; test partial Agent failure and recovery.
-6. Validate through Claude Code or another authenticated MCP client; deploy the MCP only after CI passes and the operator explicitly approves.
+1. Complete the module boundary review and verify that MCP tools call application use cases rather than upstream clients directly.
+2. Add/verify container detail enrichment for restart count, health, StartedAt, and uptime where needed; preserve honest null/unknown semantics when data is unavailable.
+3. Expand tests for endpoint discovery, allowlist exclusion, malformed responses, TLS failures, response limits, sensitive-field exclusion, and per-environment partial failures.
+4. Add the five-host Portainer runtime properties to the private Config Server only when the runtime configuration change is approved; keep the Portainer certificate truststore in the MCP runtime.
+5. Run Maven verify and inspect CI results; resolve all failures before merging.
+6. Validate through Claude Code or another authenticated MCP client. Deploy only after CI passes and the operator explicitly approves.
 
 ## Starting a new engineering conversation
 

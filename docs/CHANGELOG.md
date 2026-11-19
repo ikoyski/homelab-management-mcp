@@ -6,6 +6,7 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ### Validated
 - Claude Code successfully completed Webtools OAuth authorization, connected to the deployed Homelab Management MCP, discovered and used the Proxmox inventory tools, and generated a natural-language report from live inventory data.
+- Grok successfully connected to the deployed Homelab MCP and queried live Proxmox inventory, returning node, guest, and storage details. This validates the observed Grok MCP/tool-execution path for Release 1 only; Docker inventory was not tested.
 - Upgraded Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, `ncloud-pve`) to Portainer CE 2.45.4. All five environments reconnected and were confirmed Up/reporting resources.
 - Docker Engine versions observed during the Portainer upgrade validation: 28.4.0 on local `util-pve`; 29.1.3 on the four remote Agent-managed environments.
 

@@ -13,7 +13,7 @@ class PortainerPropertiesTest {
     void acceptsHttpsAndAValidAllowlist() {
         assertDoesNotThrow(() -> new PortainerProperties(
                 URI.create("https://portainer.test/"), "test-key",
-                3000, 8000, 1024, new PortainerProperties.Environments(List.of("util-pve"))));
+                3000, 8000, 1024, new PortainerProperties.Environments(List.of("util-pve", "dev-pve", "earn-pve", "media-pve", "ncloud-pve"))));
     }
 
     @Test
@@ -35,7 +35,7 @@ class PortainerPropertiesTest {
         assertThrows(IllegalStateException.class, () -> new PortainerProperties(
                 URI.create("https://portainer.test/"), "test-key",
                 3000, 8000, 1024,
-                new PortainerProperties.Environments(List.of("util-pve", "util-pve"))));
+                new PortainerProperties.Environments(List.of("util-pve", "util-pve", "earn-pve", "media-pve", "ncloud-pve"))));
     }
 
     @Test

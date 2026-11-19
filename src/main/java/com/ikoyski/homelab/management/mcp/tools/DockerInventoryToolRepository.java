@@ -17,13 +17,13 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 /** MCP inbound tool registration for application-owned Docker inventory results. */
 @Component
-@ConditionalOnBean(DockerInventoryUseCase.class)
+@ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
 public class DockerInventoryToolRepository implements McpSyncToolRepository {
     private static final Logger log = LoggerFactory.getLogger(DockerInventoryToolRepository.class);
     private static final String HOSTS = "list_docker_hosts";

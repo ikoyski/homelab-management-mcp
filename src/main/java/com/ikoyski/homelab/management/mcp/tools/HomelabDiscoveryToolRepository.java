@@ -61,7 +61,6 @@ public class HomelabDiscoveryToolRepository implements McpSyncToolRepository {
         return tools.get(name);
     }
 
-    /** Shared tool execution used by both the modern and compatibility SDKs. */
     public List<String> toolNames() {
         return List.copyOf(tools.keySet());
     }
@@ -108,12 +107,17 @@ public class HomelabDiscoveryToolRepository implements McpSyncToolRepository {
         List<String> safe = targets.stream()
                 .filter(t -> t != null && t.matches("[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}"))
                 .toList();
+        boolean dockerConfigured = environment.getProperty("homelab.docker.portainer.base-url") != null
+                && !environment.getProperty("homelab.docker.portainer.base-url").isBlank();
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("mode", "read-only");
         result.put("discoveryImplemented", true);
         result.put("configuredTargetCount", safe.size());
         result.put("targets", safe);
-        result.put("message", "Proxmox inventory is implemented; Docker discovery is outside Release 1.");
+        result.put("dockerInventoryConfigured", dockerConfigured);
+        result.put("message", dockerConfigured
+                ? "Proxmox and Docker inventory tools are implemented; Docker data is retrieved through the configured Portainer integration."
+                : "Proxmox inventory tools are implemented; Docker inventory tools are available when Portainer is configured.");
         return result;
     }
 

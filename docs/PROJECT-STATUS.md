@@ -113,7 +113,7 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 - 2026-11-19 — Homelab Portainer Proxy PR #5 closed unmerged; separate proxy approach abandoned.
 - 2026-11-19 — Claude Code OAuth and live Proxmox MCP tool execution validated.
 - 2026-11-19 — Portainer Server and all four Agents upgraded to CE 2.45.4; all five environments reconnected.
-- 2026-11-19 — [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) skeleton repository created; implementation remains outstanding.
+- 2026-11-19 — Initial Portainer adapter foundation and application-owned Docker inventory models added to the modular-monolith branch; implementation and verification remain in progress.
 
 ## Recommended next work
 

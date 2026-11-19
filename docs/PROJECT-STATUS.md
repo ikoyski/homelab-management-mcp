@@ -12,10 +12,10 @@
 |---|---|---|
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; live inventory was exercised through an authenticated MCP client. |
 | Claude Code client integration | Validated | OAuth, MCP connection/tool discovery, authenticated Proxmox tool use, and a live-inventory natural-language report succeeded on 2026-11-19. |
-| Release 2 — Docker inventory | Architecture documented; MCP implementation not started | PR #18 merged the architecture; PR #19 merged Portainer upgrade-compatibility requirements. |
+| Release 2 — Docker inventory | Architecture documented; MCP implementation not started | Modular-monolith implementation is now the selected approach; see ADR-0003. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
-| Read-only proxy project | Skeleton created; functionality not implemented | [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) has the initial Java/Spring Boot project structure, documentation and a reported successful initial local Maven build. No proxy routes or enforcement behavior are implemented/verified yet. |
-| Enforceable read-only Portainer access | Open implementation prerequisite | Complete and test the fixed-operation proxy; reject non-GET methods, unknown paths and unapproved query parameters, and prevent MCP-to-Portainer bypass. |
+| Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture. Its reusable client, TLS, response-size-limit, endpoint-discovery, allowlist, and test code will be selectively ported into the MCP. |
+| Enforceable read-only Portainer access | Open implementation prerequisite | Implement and test a dedicated Portainer adapter exposing only fixed GET operations, with no generic path forwarding or caller-controlled endpoint IDs. |
 | Portainer TLS trust | Open deployment prerequisite | Provision and verify Java trust for the self-signed Portainer certificate; retain certificate-chain and hostname verification. |
 | Natural-language status/reporting improvements | Deferred | Revisit after Docker support is complete. |
 
@@ -44,7 +44,7 @@ Important metric semantics:
 
 Read [Release 2 — Docker read-only inventory](architecture/release-2-docker-inventory.md) before implementation.
 
-The MCP will connect to exactly one Portainer Server on `util-pve`, **through the private fixed-operation proxy**. Portainer Server reaches its local Docker Engine and the four remote Docker Engines through Portainer Agents. The MCP must not connect directly to Agents, Docker sockets, or Portainer Server around the proxy.
+The MCP will connect to exactly one Portainer Server on `util-pve`, through a dedicated internal Portainer infrastructure adapter. Portainer Server reaches its local Docker Engine and the four remote Docker Engines through Portainer Agents. The MCP must not connect directly to Agents or Docker sockets.
 
 Initial environment allowlist:
 
@@ -65,17 +65,17 @@ The planned MCP tools are:
 - `list_docker_networks`
 - `get_docker_inventory`
 
-Internal inventory DTOs must be independent of Portainer response DTOs. Environment IDs are discovered at runtime by the proxy and matched against its server-side allowlist. One unavailable Agent must not suppress results from the other environments.
+Internal inventory models must be independent of Portainer response DTOs. Environment IDs are discovered at runtime by the Portainer adapter and matched against the private server-side allowlist. One unavailable Agent must not suppress results from the other environments.
 
 The inventory must expose only explicitly allowlisted fields. Never return container environment variables, secrets, labels, commands, mounts, logs, raw inspect payloads, or arbitrary Docker metadata. No write-capable Docker tools belong in Release 2.
 
 ## Release 2 — prerequisites and implementation status
 
 1. **Completed:** Upgrade Portainer Server first, then all Agents, to the compatible Portainer CE 2.45.4 release. All five environments were verified Up and reporting resources after the upgrade.
-2. **In progress in a separate repository:** Build the [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) fixed-operation read-only proxy. Its current repository state is a skeleton only; the proxy does not yet enforce the boundary.
-3. **Open:** Implement and test fixed allowlisted GET operations, reject every non-GET method, unknown path and unapproved query parameter, sanitize response DTOs, and prove the MCP cannot bypass the proxy to reach Portainer.
-4. **Open:** Provision and verify Java trust for the self-signed Portainer certificate, preserving normal certificate-chain and hostname/IP verification on the proxy-to-Portainer connection and the MCP-to-proxy connection as applicable.
-5. After the proxy boundary and TLS trust are verified, implement the MCP-side proxy client/adapter and Docker inventory tools.
+2. **Architecture decision changed:** The separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) service is abandoned. PR #5 was closed unmerged. Relevant implementation code will be selectively moved into Homelab Management MCP.
+3. **Open:** Implement and test fixed allowlisted GET operations inside the Portainer adapter, dynamic endpoint discovery, strict environment matching, bounded responses, sanitized mapping, and per-environment failure isolation.
+4. **Open:** Provision and verify Java trust for the self-signed Portainer certificate in the MCP runtime, preserving normal certificate-chain and hostname/IP verification.
+5. After the adapter boundary and TLS trust are verified, implement application-owned Docker inventory models and the Docker inventory tools.
 
 ## Portainer upgrade compatibility
 
@@ -109,19 +109,20 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 
 - PR #18 — merged: Release 2 Docker inventory architecture.
 - PR #19 — merged: Portainer upgrade compatibility validation.
+- 2026-11-19 — ADR-0003 accepted: use a modular monolith with separate MCP inbound, Proxmox, Portainer, and inventory application/domain modules.
+- 2026-11-19 — Homelab Portainer Proxy PR #5 closed unmerged; separate proxy approach abandoned.
 - 2026-11-19 — Claude Code OAuth and live Proxmox MCP tool execution validated.
 - 2026-11-19 — Portainer Server and all four Agents upgraded to CE 2.45.4; all five environments reconnected.
 - 2026-11-19 — [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) skeleton repository created; implementation remains outstanding.
 
 ## Recommended next work
 
-1. Implement the fixed-operation proxy endpoints and Portainer adapter in the separate proxy repository, including strict method/path/query allowlisting and safe response DTO mapping.
-2. Add automated security tests proving that write methods, unknown paths, unapproved query parameters, caller-supplied endpoint IDs/URLs, and attempts to access sensitive Docker fields are rejected or excluded.
-3. Configure and verify TLS trust from the proxy to Portainer; preserve certificate-chain and hostname/IP verification.
-4. Deploy/test the proxy only on the private homelab network and ensure the MCP has no direct network route to Portainer that bypasses it.
-5. Implement the MCP-side client/adapter against the proxy contract, then add environment discovery and allowlist mapping.
-6. Implement host, container, network, and combined inventory incrementally; test partial Agent failure and recovery.
-7. Validate through Claude Code or another authenticated MCP client; deploy the MCP only after CI passes and the operator explicitly approves.
+1. Establish the modular-monolith package boundaries and application-owned Docker inventory models.
+2. Port the required Portainer HTTP client, response-size limiter, TLS configuration approach, endpoint resolver, and relevant tests into the dedicated Portainer infrastructure module.
+3. Implement strict fixed GET-only operations, dynamic endpoint discovery, exact environment allowlisting, and sensitive-field exclusion.
+4. Configure and verify TLS trust from the MCP runtime to Portainer; preserve certificate-chain and hostname/IP verification.
+5. Implement host, container, network, and combined inventory use cases incrementally; test partial Agent failure and recovery.
+6. Validate through Claude Code or another authenticated MCP client; deploy the MCP only after CI passes and the operator explicitly approves.
 
 ## Starting a new engineering conversation
 

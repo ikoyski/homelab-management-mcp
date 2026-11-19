@@ -7,6 +7,7 @@ A read-only-first Model Context Protocol (MCP) server for discovering and monito
 The canonical project handoff is [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md). Read it before starting implementation or continuing work in a new conversation. It records verified release status, open prerequisites, decisions, and next steps.
 
 - [Architecture decision records](docs/architecture/decisions/) explain important accepted design and security decisions.
+- [Modular monolith architecture](docs/architecture/modular-monolith.md) defines the inbound MCP and independent Proxmox/Portainer integration boundaries.
 - [Changelog](docs/CHANGELOG.md) records notable project milestones.
 - [CLAUDE.md](CLAUDE.md) contains mandatory engineering and security instructions for coding agents.
 

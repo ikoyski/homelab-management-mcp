@@ -21,16 +21,21 @@ public class CombinedToolRepository implements McpSyncToolRepository {
         this.repositories = Arrays.stream(repositories).filter(Objects::nonNull).toList();
     }
 
-    @Override
-    public ToolsPage list(McpRequestContext context, String cursor) {
-        List<Tool> tools = new ArrayList<>();
+    public List<String> toolNames() {
+        List<String> names = new ArrayList<>();
         for (McpSyncToolRepository repository : repositories) {
             if (repository instanceof HomelabDiscoveryToolRepository proxmox) {
-                proxmox.toolNames().stream().map(name -> proxmox.find(context, name)).forEach(tools::add);
+                names.addAll(proxmox.toolNames());
             } else if (repository instanceof DockerInventoryToolRepository docker) {
-                docker.toolNames().stream().map(name -> docker.find(context, name)).forEach(tools::add);
+                names.addAll(docker.toolNames());
             }
         }
+        return List.copyOf(names);
+    }
+
+    @Override
+    public ToolsPage list(McpRequestContext context, String cursor) {
+        List<Tool> tools = toolNames().stream().map(name -> find(context, name)).toList();
         return ToolsPage.of(tools);
     }
 

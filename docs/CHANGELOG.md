@@ -9,6 +9,9 @@ Notable project changes are recorded here in reverse chronological order. This i
 - Upgraded Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, `ncloud-pve`) to Portainer CE 2.45.4. All five environments reconnected and were confirmed Up/reporting resources.
 - Docker Engine versions observed during the Portainer upgrade validation: 28.4.0 on local `util-pve`; 29.1.3 on the four remote Agent-managed environments.
 
+### Added
+- Created the separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository with its initial Java/Spring skeleton, placeholder packages, proposed proxy design, and local Maven build reported successful. No proxy functionality or Portainer connectivity is claimed.
+
 ### Still outstanding for Release 2
 - The server-enforced read-only boundary is not yet implemented/verified. The planned private fixed-operation GET-only proxy remains required unless Portainer CE permissions are proven sufficient.
 - Java trust for the self-signed Portainer certificate must be provisioned and verified without disabling TLS certificate or hostname checks.

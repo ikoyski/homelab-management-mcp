@@ -39,6 +39,15 @@ class PortainerPropertiesTest {
     }
 
     @Test
+    void rejectsAnAllowlistThatAddsSharedPveOrOmitsAnApprovedHost() {
+        assertThrows(IllegalStateException.class, () -> new PortainerProperties(
+                URI.create("https://portainer.test/"), "test-key",
+                3000, 8000, 1024,
+                new PortainerProperties.Environments(List.of(
+                        "util-pve", "dev-pve", "earn-pve", "media-pve", "shared-pve"))));
+    }
+
+    @Test
     void rejectsInvalidTimeoutAndResponseLimits() {
         assertThrows(IllegalStateException.class, () -> new PortainerProperties(
                 URI.create("https://portainer.test/"), "test-key",

@@ -3,6 +3,7 @@ package com.ikoyski.homelab.management.mcp.portainer.config;
 import com.ikoyski.homelab.management.mcp.portainer.client.ResponseSizeLimitInterceptor;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,6 +18,7 @@ import org.springframework.web.client.RestClient;
  * Portainer certificate.</p>
  */
 @Configuration(proxyBeanMethods = false)
+@ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
 @EnableConfigurationProperties(PortainerProperties.class)
 public class PortainerClientConfiguration {
 

@@ -11,9 +11,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Values are supplied by Config Server; no environment-specific defaults live in code.
  */
 @ConfigurationProperties(prefix = "homelab.docker.portainer")
-private static final Set<String> APPROVED_ENVIRONMENTS = Set.of(
-            "util-pve", "dev-pve", "earn-pve", "media-pve", "ncloud-pve");
-
 public record PortainerProperties(
         URI baseUrl,
         String apiKey,
@@ -21,6 +18,9 @@ public record PortainerProperties(
         int readTimeoutMs,
         long maxResponseBytes,
         Environments environments) {
+
+    private static final Set<String> APPROVED_ENVIRONMENTS = Set.of(
+            "util-pve", "dev-pve", "earn-pve", "media-pve", "ncloud-pve");
 
     public PortainerProperties {
         if (baseUrl == null || !"https".equalsIgnoreCase(baseUrl.getScheme())

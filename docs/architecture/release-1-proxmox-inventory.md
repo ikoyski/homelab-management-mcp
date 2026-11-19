@@ -26,8 +26,13 @@ The adapter extracts explicit safe fields and does not return raw API payloads. 
 ## Metric semantics
 
 The `cpu` field from Proxmox is a utilization fraction in the range `0` to
-`1`; it is rounded to six decimal places for readable JSON and remains a
-fraction rather than a percentage.
+`1`; it is rounded to six decimal places and preserved as a fraction.
+`cpuUsagePercent` is derived as `cpu * 100`; do not divide by `maxcpu`.
+The memory and disk capacity fields (`mem`, `maxmem`, `disk`, `maxdisk`)
+are byte counts and carry `byteUnit: "bytes"`. `memoryUsagePercent` is
+derived from `mem / maxmem * 100` only when both values are present and
+`maxmem` is positive. Missing or invalid source metrics do not produce a
+derived percentage.
 
 For QEMU and LXC guest entries, `maxdisk` is the reported root/boot disk
 capacity and `disk` is Proxmox's reported used root-image space. QEMU

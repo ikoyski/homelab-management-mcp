@@ -73,6 +73,44 @@ class ProxmoxInventoryServiceTest {
         assertThat(fields.get("cpu")).isEqualTo(new java.math.BigDecimal("0.256789"));
     }
 
+
+    @Test
+    void addsCpuAndMemoryPercentagesWithoutChangingRawResourceValues() throws Exception {
+        var source = jsonMapper.readTree("""
+                {"cpu":0.058904,"maxcpu":4,"mem":13254696960,"maxmem":16673116160,"disk":0,"maxdisk":500000000000}
+                """);
+
+        Map<String,Object> fields = ProxmoxInventoryService.safeFields(
+                source, List.of("cpu", "maxcpu", "mem", "maxmem", "disk", "maxdisk"));
+
+        assertThat(fields).containsEntry("cpu", new java.math.BigDecimal("0.058904"))
+                .containsEntry("cpuUsagePercent", new java.math.BigDecimal("5.9"))
+                .containsEntry("memoryUsagePercent", new java.math.BigDecimal("79.5"))
+                .containsEntry("byteUnit", "bytes")
+                .containsEntry("mem", 13254696960L)
+                .containsEntry("maxmem", 16673116160L)
+                .containsEntry("disk", 0);
+    }
+
+    @Test
+    void omitsDerivedPercentagesWhenSourceMetricsAreMissingOrInvalid() throws Exception {
+        var missing = jsonMapper.readTree("""
+                {"cpu":0.25,"mem":1024,"maxmem":0}
+                """);
+        Map<String,Object> fields = ProxmoxInventoryService.safeFields(
+                missing, List.of("cpu", "mem", "maxmem"));
+
+        assertThat(fields).containsEntry("cpuUsagePercent", new java.math.BigDecimal("25.0"))
+                .containsEntry("byteUnit", "bytes")
+                .doesNotContainKeys("memoryUsagePercent");
+
+        var invalidCpu = jsonMapper.readTree("""
+                {"cpu":1.25}
+                """);
+        Map<String,Object> invalidFields = ProxmoxInventoryService.safeFields(invalidCpu, List.of("cpu"));
+        assertThat(invalidFields).doesNotContainKey("cpuUsagePercent");
+    }
+
     @Test
     void mapsDirectoryStorageStatusToSafeCapacityFields() throws Exception {
         var response = jsonMapper.readTree("""
@@ -95,6 +133,7 @@ class ProxmoxInventoryServiceTest {
                 .containsEntry("totalBytes", 1967846068224L)
                 .containsEntry("usedBytes", 906400428032L)
                 .containsEntry("availableBytes", 961408970752L)
+                .containsEntry("byteUnit", "bytes")
                 .containsEntry("active", 1)
                 .containsEntry("enabled", 1)
                 .containsEntry("shared", 0)
@@ -114,6 +153,7 @@ class ProxmoxInventoryServiceTest {
                 .containsEntry("totalBytes", 52978253824L)
                 .containsEntry("usedBytes", 0L)
                 .containsEntry("availableBytes", 52978253824L)
+                .containsEntry("byteUnit", "bytes")
                 .containsEntry("usagePercent", 0.0);
     }
 
@@ -198,6 +238,7 @@ class ProxmoxInventoryServiceTest {
                 .containsEntry("totalBytes", 99700789248L)
                 .containsEntry("usedBytes", 48389709824L)
                 .containsEntry("availableBytes", 51311079424L)
+                .containsEntry("byteUnit", "bytes")
                 .containsEntry("usagePercent", 48.5)
                 .doesNotContainKey("disk");
     }

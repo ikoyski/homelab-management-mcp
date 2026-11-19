@@ -40,8 +40,13 @@ storage paths and other configuration details are not returned.
 
 The Proxmox `cpu` field is a utilization fraction from `0` to `1` (for example,
 `0.125` means 12.5% of the available CPU capacity). The inventory rounds this
-fraction to six decimal places and keeps it as a decimal fraction; it does not
-convert it to a percentage.
+fraction to six decimal places and preserves it unchanged. It also returns
+`cpuUsagePercent`, derived as `cpu * 100`; do not divide by `maxcpu` again.
+Node and guest memory fields `mem` and `maxmem`, and disk fields `disk` and
+`maxdisk`, are byte counts and are marked with `byteUnit: "bytes"`.
+`memoryUsagePercent` is derived from `mem / maxmem * 100` when both values
+are present and `maxmem` is positive. Missing or invalid source metrics do
+not produce a derived percentage.
 
 For guest disk fields from `/cluster/resources`, `maxdisk` is the reported
 root/boot disk capacity. The `disk` value is Proxmox's reported used root-image

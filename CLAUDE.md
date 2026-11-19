@@ -35,8 +35,9 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 - Discover Portainer environment IDs at runtime; match environments against the server-side allowlist. Never accept caller-supplied endpoint IDs, URLs, API paths, or commands.
 - Include only the five approved environments: util-pve, dev-pve, earn-pve, media-pve, and ncloud-pve. Exclude shared-pve.
 - The homelab Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19; all five environments reconnected and reported resources. Check current advisories and compatibility guidance before future upgrades.
-- Establish and test a server-enforced read-only permission boundary. GET-only application behavior is not sufficient. If Portainer CE cannot enforce the needed restriction, use the fixed-operation private read-only proxy described in the architecture.
-- Preserve TLS certificate and hostname/IP verification. Trust the self-signed certificate correctly; never use trust-all TLS or insecure HTTP.
+- Establish and test a server-enforced read-only permission boundary. GET-only application behavior is not sufficient. The separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository contains the initial Java/Spring Boot skeleton for the fixed-operation private proxy; it is a skeleton, not a completed or verified security boundary.
+- The proxy must expose only fixed inventory operations, reject non-GET methods, unknown paths and unapproved query parameters, and keep Portainer credentials and environment IDs private. The MCP must have no alternate network path to Portainer that bypasses the proxy.
+- Preserve TLS certificate and hostname/IP verification end-to-end. Trust the self-signed certificate correctly; never use trust-all TLS or insecure HTTP.
 - Isolate per-environment failures. One unavailable Agent must not suppress results from other environments.
 - Return only allowlisted host/container/network fields. Never return environment variables, secrets, labels, commands, mounts, logs, raw inspect payloads, or arbitrary metadata.
 - No Docker write operations, container exec, Docker socket mount, or direct remote Docker TCP access in Release 2.

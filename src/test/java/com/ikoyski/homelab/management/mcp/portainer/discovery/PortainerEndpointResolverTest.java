@@ -1,4 +1,4 @@
-package com.ikoyski.homelab.management.mcp.portainer.allowlist;
+package com.ikoyski.homelab.management.mcp.portainer.discovery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -8,7 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.ikoyski.homelab.management.mcp.portainer.config.PortainerProperties;
-import com.ikoyski.homelab.management.mcp.portainer.upstream.PortainerApiClient;
+import com.ikoyski.homelab.management.mcp.portainer.client.PortainerApiClient;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;

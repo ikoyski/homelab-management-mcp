@@ -14,6 +14,7 @@ import com.ikoyski.homelab.management.mcp.portainer.client.PortainerApiClient;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -174,7 +175,7 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
         JsonNode networkSettings = source.path("NetworkSettings");
         JsonNode attached = networkSettings.path("Networks");
         if (attached.isObject()) {
-            attached.fieldNames().forEachRemaining(attachedNetworks::add);
+            attached.propertyNames().forEach(attachedNetworks::add);
             attachedNetworks.sort(String::compareTo);
         }
         return new DockerContainer(hostKey, id, name, text(source, "Image"),
@@ -194,7 +195,7 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
         List<String> connected = new ArrayList<>();
         JsonNode members = source.path("Containers");
         if (members.isObject()) {
-            members.fieldNames().forEachRemaining(memberId -> {
+            members.propertyNames().forEach(memberId -> {
                 String memberName = text(members.get(memberId), "Name");
                 if (memberName != null && !memberName.isBlank()) {
                     connected.add(memberName);

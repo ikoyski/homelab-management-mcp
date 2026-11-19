@@ -1,4 +1,4 @@
-package com.ikoyski.homelab.management.mcp.portainer.upstream;
+package com.ikoyski.homelab.management.mcp.portainer.client;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;

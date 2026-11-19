@@ -7,6 +7,7 @@ A read-only-first Model Context Protocol (MCP) server for discovering and monito
 The canonical project handoff is [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md). Read it before starting implementation or continuing work in a new conversation. It records verified release status, open prerequisites, decisions, and next steps.
 
 - [Architecture decision records](docs/architecture/decisions/) explain important accepted design and security decisions.
+- [Modular monolith architecture](docs/architecture/modular-monolith.md) defines the inbound MCP and independent Proxmox/Portainer integration boundaries.
 - [Changelog](docs/CHANGELOG.md) records notable project milestones.
 - [CLAUDE.md](CLAUDE.md) contains mandatory engineering and security instructions for coding agents.
 
@@ -67,6 +68,9 @@ Docker discovery and all infrastructure-changing operations are outside Release 
 Claude Code was successfully validated on 2026-11-19: it completed Webtools OAuth authorization, connected to the deployed MCP endpoint, discovered and used the Proxmox inventory tools, and generated a natural-language report from live inventory data. This validates the Claude Code OAuth/MCP/tool-execution path for Release 1; it does not imply Docker inventory is implemented or validate other AI clients.
 
 ## Security boundaries
+
+- Keep the application as a modular monolith with distinct inbound MCP, Proxmox infrastructure, Portainer infrastructure, and inventory application/domain modules. Keep each upstream connection's authentication, HTTP client, DTOs, errors, and configuration separate.
+- Portainer access is implemented only through fixed GET operations in its dedicated adapter; no generic URL/path forwarding or write-capable Portainer methods.
 
 - Use a dedicated Proxmox API token with only the read privileges required for inventory.
 - TLS certificate verification remains enabled; do not disable hostname or certificate validation.
@@ -157,7 +161,7 @@ The Config Server must be reachable using protected bootstrap settings supplied 
 
 ## Next release: Release 2 — Docker read-only inventory
 
-- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19 and all five environments reconnected. The separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository contains the initial proxy skeleton; fixed-operation enforcement, TLS validation, and MCP integration remain outstanding. The design excludes shared-pve and keeps the MCP inventory model independent of Portainer.
+- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19 and all five environments reconnected. The accepted architecture is a modular monolith: a dedicated Portainer infrastructure adapter inside the MCP, separate from Proxmox and the application-owned inventory model. The separate Portainer Proxy approach was abandoned; see [ADR-0003](docs/architecture/decisions/ADR-0003-modular-monolith-infrastructure-boundaries.md). The design excludes shared-pve.
 - Later releases: separately designed, explicitly authorized operational actions with approval and audit controls.
 
 Future write-capable tools must be separate from discovery tools and enforced server-side. Destructive actions must never be bundled into general inventory operations.

@@ -69,10 +69,11 @@ The inventory must expose only explicitly allowlisted fields. Never return conta
 
 ## Release 2 — prerequisites and implementation status
 
-1. **Completed:** Upgrade Portainer Server first, then all Agents, to the compatible Portainer CE 2.45.4 release. All five environments were verified Up and reporting resources after the upgrade.
-2. **Open:** Implement and test a genuinely enforceable read-only access boundary. A token used only with GET requests is not sufficient by itself. Portainer CE token permissions are not assumed to provide the required restriction; use a private fixed-operation read-only proxy and ensure the MCP cannot bypass it.
-3. **Open:** Provision and verify Java trust for the self-signed Portainer certificate, preserving normal certificate-chain and hostname/IP verification.
-4. After the read-only boundary and TLS trust are verified, implement and enable the Portainer adapter.
+1. **Completed:** Upgrade Portainer Server first, then all Agents, to Portainer CE 2.45.4. All five environments were verified Up and reporting resources after the upgrade.
+2. **In progress — separate repository:** The [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository has a Java/Spring skeleton, placeholder packages, proposed design, and an initial local Maven build reported successful. It does not yet implement proxy operations and has not contacted Portainer. Implement and test the fixed-operation, default-deny, DTO-filtering boundary there.
+3. **Open:** Decide and implement authenticated MCP-to-proxy communication and the private network placement. The MCP must have no alternate route to Portainer.
+4. **Open:** Provision and verify Java trust for the self-signed Portainer certificate in the proxy runtime, preserving normal certificate-chain and hostname/IP verification.
+5. After the proxy's security boundary and TLS trust are verified, implement the MCP's application-owned Docker inventory adapter against the proxy API.
 
 ## Portainer upgrade compatibility
 
@@ -106,16 +107,18 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 
 - PR #18 — merged: Release 2 Docker inventory architecture.
 - PR #19 — merged: Portainer upgrade compatibility validation.
-- Current documentation work — establish canonical project status, decision records, and changelog.
+- 2026-11-19 — Claude Code OAuth, MCP initialization/tool discovery, and authenticated Proxmox tool execution validated end to end.
+- 2026-11-19 — Portainer Server and all four Agents upgraded to CE 2.45.4; all five environments reconnected and reported resources.
+- 2026-11-19 — Created the separate `homelab-portainer-proxy` skeleton repository as the planned read-only security boundary.
 
 ## Recommended next work
 
-1. Complete the Portainer security upgrade and record verified versions.
-2. Prove the read-only authorization boundary and Portainer TLS trust from the MCP runtime network.
-3. Implement the Portainer transport behind an application-owned interface, with fixture-based tests and sanitized error handling.
-4. Implement environment discovery and allowlist matching, then `list_docker_hosts`.
-5. Add container, network, and combined inventory incrementally.
-6. Validate through an authenticated MCP client; deploy only after tests pass and the operator explicitly approves.
+1. Implement the fixed-operation, default-deny API and proxy-owned response DTOs in `homelab-portainer-proxy`; add rejection, filtering, and credential non-leakage tests.
+2. Finalize MCP-to-proxy authentication and private network placement; ensure the MCP cannot bypass the proxy.
+3. Configure and verify Portainer TLS trust in the proxy runtime without weakening certificate or hostname verification.
+4. Implement proxy-side Portainer environment discovery and allowlist matching, then the fixed inventory operations.
+5. Implement the MCP Docker inventory adapter against the proxy contract, preserving application-owned DTOs and per-environment failure isolation.
+6. Add container, network, and combined inventory incrementally; validate through an authenticated MCP client and deploy only after tests pass and the operator explicitly approves.
 
 ## Starting a new engineering conversation
 

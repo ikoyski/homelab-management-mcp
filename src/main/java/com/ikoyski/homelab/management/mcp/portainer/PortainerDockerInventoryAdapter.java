@@ -13,9 +13,7 @@ import com.ikoyski.homelab.management.mcp.portainer.discovery.PortainerEndpointR
 import com.ikoyski.homelab.management.mcp.portainer.client.PortainerApiClient;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -196,12 +194,12 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
         List<String> connected = new ArrayList<>();
         JsonNode members = source.path("Containers");
         if (members.isObject()) {
-            members.fields().forEachRemaining(entry -> {
-                String memberName = text(entry.getValue(), "Name");
+            members.fieldNames().forEachRemaining(memberId -> {
+                String memberName = text(members.get(memberId), "Name");
                 if (memberName != null && !memberName.isBlank()) {
                     connected.add(memberName);
                 } else {
-                    connected.add(entry.getKey());
+                    connected.add(memberId);
                 }
             });
             connected.sort(String::compareTo);
@@ -235,7 +233,7 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
     }
 
     private static String firstName(JsonNode names) {
-        if (names == null || !names.isArray() || names.isEmpty()) {
+        if (names == null || !names.isArray() || names.size() == 0) {
             return null;
         }
         String value = names.get(0).isString() ? names.get(0).stringValue() : null;

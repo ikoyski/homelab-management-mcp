@@ -77,7 +77,6 @@ References:
 - [Portainer API documentation](https://docs.portainer.io/api/docs)
 - [Accessing the Portainer API](https://docs.portainer.io/api/access)
 
-Do not deploy or enable the adapter against the currently reported 2.39.6 installation.
 
 
 ## Portainer upgrade compatibility

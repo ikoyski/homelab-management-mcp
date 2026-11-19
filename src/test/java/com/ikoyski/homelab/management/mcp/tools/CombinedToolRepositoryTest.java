@@ -29,41 +29,39 @@ class CombinedToolRepositoryTest {
             "get_docker_inventory");
 
     @Test
-    void advertisesAllProxmoxAndDockerToolsTogetherWhenPortainerIsConfigured() {
-        MockEnvironment environment = new MockEnvironment()
-                .withProperty("homelab.docker.portainer.base-url", "https://portainer.example/");
-        ObjectMapper mapper = new ObjectMapper();
-        HomelabDiscoveryToolRepository proxmox = new HomelabDiscoveryToolRepository(
-                environment, mock(ProxmoxInventoryService.class), mapper);
-        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
-                mock(DockerInventoryUseCase.class), mapper);
+    void modernAdapterAdvertisesTheSharedNineToolCatalogWhenPortainerIsConfigured() {
+        HomelabToolCatalog catalog = configuredCatalog();
+        CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
-        CombinedToolRepository combined = new CombinedToolRepository(proxmox, docker);
+        assertEquals(9, catalog.toolNames().size());
+        assertEquals(catalog.toolNames().size(), modernAdapter.list(null, null).tools().size());
 
-        assertEquals(9, combined.toolNames().size());
         for (String name : PROXMOX_TOOLS) {
-            assertTrue(combined.toolNames().contains(name));
-            assertNotNull(combined.find(null, name), "Missing MCP tool: " + name);
+            assertTrue(catalog.contains(name));
+            assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
+            assertNotNull(catalog.toolDescription(name));
         }
         for (String name : DOCKER_TOOLS) {
-            assertTrue(combined.toolNames().contains(name));
-            assertNotNull(combined.find(null, name), "Missing MCP tool: " + name);
+            assertTrue(catalog.contains(name));
+            assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
+            assertNotNull(catalog.toolDescription(name));
         }
     }
 
     @Test
-    void keepsProxmoxToolsAvailableWhenDockerIntegrationIsNotConfigured() {
+    void catalogKeepsTheFiveProxmoxToolsWhenDockerIntegrationIsNotConfigured() {
         HomelabDiscoveryToolRepository proxmox = new HomelabDiscoveryToolRepository(
                 new MockEnvironment(), mock(ProxmoxInventoryService.class), new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(proxmox);
+        CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
-        CombinedToolRepository combined = new CombinedToolRepository(proxmox, null);
-
-        assertEquals(5, combined.toolNames().size());
+        assertEquals(5, catalog.toolNames().size());
+        assertEquals(catalog.toolNames().size(), modernAdapter.list(null, null).tools().size());
         for (String name : PROXMOX_TOOLS) {
-            assertNotNull(combined.find(null, name), "Missing MCP tool: " + name);
+            assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
         }
         for (String name : DOCKER_TOOLS) {
-            assertNull(combined.find(null, name), "Unexpected MCP tool: " + name);
+            assertNull(modernAdapter.find(null, name), "Unexpected MCP tool: " + name);
         }
     }
 
@@ -78,5 +76,15 @@ class CombinedToolRepositoryTest {
 
         assertTrue(configured.execute("get_discovery_scope").contains("\"dockerInventoryConfigured\":true"));
         assertTrue(unconfigured.execute("get_discovery_scope").contains("\"dockerInventoryConfigured\":false"));
+    }
+
+    private static HomelabToolCatalog configuredCatalog() {
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("homelab.docker.portainer.base-url", "https://portainer.example/");
+        HomelabDiscoveryToolRepository proxmox = new HomelabDiscoveryToolRepository(
+                environment, mock(ProxmoxInventoryService.class), new ObjectMapper());
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                mock(DockerInventoryUseCase.class), new ObjectMapper());
+        return new HomelabToolCatalog(proxmox, docker);
     }
 }

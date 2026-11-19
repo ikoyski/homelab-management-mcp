@@ -60,6 +60,11 @@ public class DockerInventoryToolRepository implements McpSyncToolRepository {
         return List.copyOf(tools.keySet());
     }
 
+    public String toolDescription(String name) {
+        Tool definition = tools.get(name);
+        return definition == null ? "Read-only Docker inventory operation." : definition.description();
+    }
+
     @Override
     public McpSyncResponse<CallToolOutcome> call(McpRequestContext context, CallToolRequest request) {
         String result = execute(request.name());
@@ -69,7 +74,7 @@ public class DockerInventoryToolRepository implements McpSyncToolRepository {
                 .build());
     }
 
-    private String execute(String name) {
+    public String execute(String name) {
         try {
             DockerInventory collected = inventory.collect();
             Object result = switch (name) {

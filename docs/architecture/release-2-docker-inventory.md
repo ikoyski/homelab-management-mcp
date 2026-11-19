@@ -61,19 +61,13 @@ These paths are implementation candidates, not permission to proxy arbitrary pat
 
 Do not add a Docker API version prefix from caller input. If a version prefix is required by the selected API, use only the canonical form supported by the pinned Portainer release and cover it with tests.
 
-## Portainer version and upgrade prerequisite
+## Portainer version and upgrade status
 
-The currently reported installation is Portainer Community Edition 2.39.6 LTS, with Agents on the remote Docker environments. This version must not be treated as an acceptable integration baseline.
+**Completed 2026-11-19:** The homelab Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve`) were upgraded to Portainer Community Edition **2.45.4**. The Server was upgraded first, followed by the Agents. All five configured environments were subsequently confirmed Up and reporting resources.
 
-As of 2026-11-17, Portainer published security advisories and releases identify fixes after 2.39.6 that are relevant to the Docker API proxy and non-administrator access controls. In particular, the Docker API proxy authorization bypass affecting 2.39.x was fixed in 2.39.7, and subsequent security fixes require a newer release. Portainer 2.45.3 LTS is the latest LTS release verified while preparing this document.
+Docker Engine versions observed during this validation were **28.4.0** for the local `util-pve` environment and **29.1.3** for each of the four remote Agent-managed environments. These are the observed engine versions at the time of the upgrade validation; they are not Portainer version numbers.
 
-Before enabling the MCP integration:
-
-1. Review Portainer current security advisories and supported release guidance.
-2. Upgrade the Portainer Server and all Portainer Agents to a mutually compatible, currently supported patched release. Prefer the current supported LTS; do not assume that merely reaching 2.39.7 is sufficient.
-3. Confirm all five configured environments are healthy and connected in Portainer after the upgrade.
-4. Record the deployed Server and Agent versions in the private operations runbook.
-5. Recheck the release notes and advisories whenever Portainer is upgraded.
+The upgrade prerequisite is therefore complete for the current deployment. Before future upgrades, review current Portainer security advisories, supported release guidance, and Server/Agent compatibility; repeat the regression procedure below and record the new versions/results. The completed upgrade does not by itself establish a read-only authorization boundary or complete TLS trust provisioning.
 
 References:
 
@@ -90,7 +84,7 @@ Do not deploy or enable the adapter against the currently reported 2.39.6 instal
 
 Portainer is the initial Docker discovery transport, but the MCP inventory contract must not be coupled to a single Portainer release. Release 2 must demonstrate that a supported, compatible Portainer Server and Agent upgrade does not require changes to the MCP application for ordinary backward-compatible API changes.
 
-The initial integration baseline is the operator-reported Portainer CE **2.39.6 LTS** installation. This is a historical baseline for comparison only; it is not an approved deployment target. The security prerequisite above remains in force: do not enable the MCP integration against this version. Before integration validation, upgrade the Server and all Agents to a currently supported, security-patched, mutually compatible release.
+The previous Portainer CE **2.39.6 LTS** installation is historical only. The current observed homelab baseline after the 2026-11-19 upgrade is Portainer CE **2.45.4** on the Server and all four Agents. This version record is an operational observation, not a substitute for checking current advisories and compatibility guidance before future upgrades.
 
 ### Upgrade validation procedure
 
@@ -228,8 +222,8 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 
 ## Implementation sequence
 
-1. Upgrade and verify Portainer Server and Agents on a supported patched release; retain the pre-upgrade environment baseline.
-2. Decide and test the enforceable read-only API access boundary for Portainer CE.
+1. **Completed:** Upgrade and verify Portainer Server and Agents on Portainer CE 2.45.4; all five configured environments reconnected and reported resources.
+2. Decide and test the enforceable read-only API access boundary. Current plan: private fixed-operation proxy if Portainer CE permissions cannot enforce the required restriction.
 3. Provision and verify Java TLS trust for the self-signed Portainer certificate.
 4. Add private configuration and the Portainer transport adapter.
 5. Implement environment discovery and configured-host matching.
@@ -243,7 +237,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 
 ## Release validation checklist
 
-1. Confirm Portainer Server and all four Agents are on a supported patched, compatible release.
+1. Confirm the recorded Portainer Server and all four Agents remain on a supported patched, compatible release; the 2026-11-19 validated baseline is CE 2.45.4.
 2. Confirm the Portainer Server API is reachable from the MCP internal network only.
 3. Confirm TLS certificate-chain and hostname/IP verification succeed from the MCP runtime.
 4. Verify the chosen read-only boundary rejects write methods and unapproved API paths.

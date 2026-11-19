@@ -25,22 +25,41 @@ public class McpProtocolRouterServlet extends HttpServlet {
     public static final String ENDPOINT = "/mcp";
     public static final String LEGACY_VERSION = "2025-11-25";
     public static final String MODERN_VERSION = "2026-07-28";
+    private static final int DEFAULT_MAX_REQUEST_SIZE_BYTES = 16 * 1024 * 1024;
 
     private final HttpServletMcpTransport modern;
     private final HttpServletStatelessServerTransport legacy;
     private final ObjectMapper mapper;
+    private final int maxRequestSizeBytes;
 
     public McpProtocolRouterServlet(HttpServletMcpTransport modern,
             HttpServletStatelessServerTransport legacy, ObjectMapper mapper) {
+        this(modern, legacy, mapper, DEFAULT_MAX_REQUEST_SIZE_BYTES);
+    }
+
+    McpProtocolRouterServlet(HttpServletMcpTransport modern,
+            HttpServletStatelessServerTransport legacy, ObjectMapper mapper, int maxRequestSizeBytes) {
+        if (maxRequestSizeBytes <= 0) {
+            throw new IllegalArgumentException("maxRequestSizeBytes must be positive");
+        }
         this.modern = modern;
         this.legacy = legacy;
         this.mapper = mapper;
+        this.maxRequestSizeBytes = maxRequestSizeBytes;
     }
 
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        byte[] body = request.getInputStream().readAllBytes();
+        // The router must inspect the JSON-RPC body before selecting an SDK transport.
+        // Bound this first read too: otherwise the SDK's own 16 MiB limit runs only
+        // after the router has already buffered an unbounded request in memory.
+        byte[] body = request.getInputStream().readNBytes(this.maxRequestSizeBytes + 1);
+        if (body.length > this.maxRequestSizeBytes) {
+            response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+            return;
+        }
+
         String headerVersion = request.getHeader("MCP-Protocol-Version");
         String method = null;
         String initializeVersion = null;

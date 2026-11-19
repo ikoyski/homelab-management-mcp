@@ -9,6 +9,7 @@ import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpStatelessSyncServer;
+import io.modelcontextprotocol.server.transport.DefaultServerTransportSecurityValidator;
 import io.modelcontextprotocol.server.transport.HttpServletStatelessServerTransport;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
@@ -27,6 +28,10 @@ public class LegacyMcpConfig {
                 .jsonMapper(McpJsonDefaults.getMapper())
                 .messageEndpoint("/mcp")
                 .contextExtractor(request -> McpTransportContext.create(Map.of()))
+                // Legacy SDK transport defaults to NOOP validation. Match the modern
+                // transport: allow non-browser clients without Origin, reject Origin
+                // unless an explicit trusted-origin allowlist is configured.
+                .httpHeaderValidator(DefaultServerTransportSecurityValidator.builder().build())
                 .build();
     }
 

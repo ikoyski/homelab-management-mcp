@@ -109,7 +109,7 @@ An unauthenticated request to the protected `/mcp` endpoint is expected to retur
 
 ## Current Release 1 verification status
 
-As of 2026-11-17, Release 1 is implemented and deployed on the homelab. The five Proxmox tools were exercised through an authenticated MCP client; the combined inventory returned all expected sections with no reported errors. A subsequent natural-language status check through Claude successfully summarized the Proxmox node, six guests, guest filesystem metrics, and storage metrics.
+As of 2026-11-19, Release 1 is implemented and deployed on the homelab. The five Proxmox tools were exercised through an authenticated MCP client; the combined inventory returned all expected sections with no reported errors. A subsequent natural-language status check through Claude successfully summarized the Proxmox node, six guests, guest filesystem metrics, and storage metrics.
 
 This is an observed homelab validation result, not a claim that every possible failure mode or every AI client has been exhaustively tested. See [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the latest handoff and remaining work.
 
@@ -155,9 +155,12 @@ mvn -B clean verify
 
 The Config Server must be reachable using protected bootstrap settings supplied by the runtime environment.
 
-## Future releases
+## Next release: Release 2 — Docker read-only inventory
 
-- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. The design excludes shared-pve, keeps the MCP inventory model independent of Portainer, and requires regression testing after supported Portainer Server/Agent upgrades. **Implementation has not started.**
+- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): read-only host, container, and network discovery across the local Docker Engine and four Agent-managed environments; `shared-pve` remains excluded.
+- Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19; all five environments reconnected and reported resources.
+- The separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository contains the initial Java/Spring skeleton for the fixed-operation read-only boundary. It is skeleton-only; proxy operations and MCP integration remain to be implemented.
+- The MCP will call the proxy, not Portainer directly. The proxy will own Portainer credentials, environment-ID discovery, fixed upstream requests, and allowlisted response DTOs.
 - Later releases: separately designed, explicitly authorized operational actions with approval and audit controls.
 
 Future write-capable tools must be separate from discovery tools and enforced server-side. Destructive actions must never be bundled into general inventory operations.

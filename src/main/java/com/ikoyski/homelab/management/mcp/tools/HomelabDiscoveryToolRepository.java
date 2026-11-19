@@ -41,13 +41,13 @@ public class HomelabDiscoveryToolRepository implements McpSyncToolRepository {
         Map<String, Tool> definitions = new LinkedHashMap<>();
         definitions.put(SCOPE, tool(SCOPE, "List configured discovery labels and the implemented release scope."));
         definitions.put("list_proxmox_nodes", tool("list_proxmox_nodes",
-                "List Proxmox cluster nodes and safe status/resource fields."));
+                "List Proxmox cluster nodes and safe status/resource fields. CPU is a 0-1 fraction; cpuUsagePercent is the derived percentage. mem, maxmem, disk, and maxdisk are byte counts; byteUnit identifies the unit. memoryUsagePercent is derived from mem/maxmem. Missing metrics are omitted, not reported as zero."));
         definitions.put("list_proxmox_guests", tool("list_proxmox_guests",
-                "List discovered QEMU virtual machines and LXC containers. QEMU filesystem usage is included when the guest agent is available."));
+                "List discovered QEMU virtual machines and LXC containers. CPU is a 0-1 fraction; cpuUsagePercent is the derived percentage. mem, maxmem, disk, and maxdisk are byte counts; byteUnit identifies the unit. memoryUsagePercent is derived from mem/maxmem. QEMU disk is Proxmox root-image usage and is not guest filesystem usage; QEMU filesystem metrics are reported separately when the guest agent is available. Missing metrics are omitted, not reported as zero."));
         definitions.put("list_proxmox_storage", tool("list_proxmox_storage",
-                "List Proxmox storage inventory and safe capacity/status fields."));
+                "List Proxmox storage inventory and safe capacity/status fields. totalBytes, usedBytes, and availableBytes are byte counts (byteUnit=bytes); usagePercent is calculated from Proxmox-reported usedBytes/totalBytes. Do not infer or relabel units."));
         definitions.put("get_proxmox_inventory", tool("get_proxmox_inventory",
-                "Get combined Proxmox node, QEMU VM, LXC container, and storage inventory. Partial results are returned when a section is unavailable."));
+                "Get combined Proxmox node, QEMU VM, LXC container, and storage inventory. CPU fields are fractions from 0 to 1 and cpuUsagePercent is the derived percentage. Memory and disk byte fields use byteUnit=bytes; memoryUsagePercent and storage/filesystem usagePercent are deterministic derived percentages. QEMU disk is not guest filesystem usage. Missing metrics are omitted, not reported as zero. Partial results are returned when a section is unavailable."));
         this.tools = Map.copyOf(definitions);
     }
 

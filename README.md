@@ -62,6 +62,10 @@ fields. The original `disk` and `maxdisk` fields are retained unchanged.
 
 Docker discovery and all infrastructure-changing operations are outside Release 1.
 
+## AI client integration
+
+Claude Code was successfully validated on 2026-11-19: it completed Webtools OAuth authorization, connected to the deployed MCP endpoint, discovered/used the Proxmox inventory tools, and generated a natural-language report from live inventory data. This is a verified Claude Code client result; other AI clients must be validated independently.
+
 ## Security boundaries
 
 - Use a dedicated Proxmox API token with only the read privileges required for inventory.

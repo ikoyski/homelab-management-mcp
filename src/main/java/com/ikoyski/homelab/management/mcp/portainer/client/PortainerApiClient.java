@@ -8,7 +8,7 @@ import org.springframework.web.client.RestClient;
 /**
  * Fixed-operation Portainer API client. Callers cannot supply paths, URLs or headers.
  * Portainer endpoint IDs are accepted only as internal adapter values discovered by
- * the proxy; they are never part of the inbound API.
+ * the adapter; they are never part of the inbound API.
  */
 @Component
 @ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")

@@ -65,7 +65,7 @@ Docker discovery and all infrastructure-changing operations are outside Release 
 
 ## AI client integration
 
-Claude Code was successfully validated on 2026-11-19: it completed Webtools OAuth authorization, connected to the deployed MCP endpoint, discovered and used the Proxmox inventory tools, and generated a natural-language report from live inventory data. This validates the Claude Code OAuth/MCP/tool-execution path for Release 1; it does not imply Docker inventory is implemented or validate other AI clients.
+Claude Code and Grok were both successfully validated on 2026-11-19 against the deployed Homelab MCP. Claude Code completed Webtools OAuth authorization, connected, discovered and used the Proxmox inventory tools, and generated a natural-language report from live inventory data. Grok also connected and successfully queried the live Proxmox inventory, returning node, guest, and storage details. These are observed client validations for Release 1; they do not validate Docker inventory or imply that every AI client has been tested.
 
 ## Security boundaries
 
@@ -113,7 +113,7 @@ An unauthenticated request to the protected `/mcp` endpoint is expected to retur
 
 ## Current Release 1 verification status
 
-As of 2026-11-17, Release 1 is implemented and deployed on the homelab. The five Proxmox tools were exercised through an authenticated MCP client; the combined inventory returned all expected sections with no reported errors. Subsequent live validation confirmed all six guests and all four storage entries. On 2026-11-19, Claude Code successfully used the deployed Proxmox tools and summarized live node, guest, filesystem, and storage inventory.
+As of 2026-11-19, Release 1 is implemented and deployed on the homelab. The five Proxmox tools were exercised through authenticated MCP clients; the combined inventory returned all expected sections with no reported errors. Subsequent live validation confirmed all six guests and all four storage entries. On 2026-11-19, Claude Code and Grok successfully queried the deployed Proxmox inventory; Claude Code summarized live node, guest, filesystem, and storage inventory, while Grok returned node, guest, and storage details.
 
 This is an observed homelab validation result, not a claim that every possible failure mode or every AI client has been exhaustively tested. See [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the latest handoff and remaining work.
 

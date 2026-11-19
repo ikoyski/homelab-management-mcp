@@ -1,62 +1,57 @@
 package com.ikoyski.homelab.management.mcp.tools;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import io.modelcontextprotocol.modern.McpSchema.CallToolOutcome;
 import io.modelcontextprotocol.modern.McpSchema.CallToolRequest;
+import io.modelcontextprotocol.modern.McpSchema.CallToolResult;
+import io.modelcontextprotocol.modern.McpSchema.TextContent;
 import io.modelcontextprotocol.modern.McpSchema.Tool;
 import io.modelcontextprotocol.modern.server.McpRequestContext;
 import io.modelcontextprotocol.modern.server.McpSyncResponse;
 import io.modelcontextprotocol.modern.server.feature.McpSyncToolRepository;
 import io.modelcontextprotocol.modern.server.feature.ToolsPage;
 
-/** Combines independently-owned tool repositories into one MCP tool surface. */
+/** Modern MCP SDK adapter over the shared homelab tool catalog. */
 public class CombinedToolRepository implements McpSyncToolRepository {
-    private final List<McpSyncToolRepository> repositories;
 
-    public CombinedToolRepository(McpSyncToolRepository... repositories) {
-        this.repositories = Arrays.stream(repositories).filter(Objects::nonNull).toList();
-    }
+    private final HomelabToolCatalog catalog;
 
-    public List<String> toolNames() {
-        List<String> names = new ArrayList<>();
-        for (McpSyncToolRepository repository : repositories) {
-            if (repository instanceof HomelabDiscoveryToolRepository proxmox) {
-                names.addAll(proxmox.toolNames());
-            } else if (repository instanceof DockerInventoryToolRepository docker) {
-                names.addAll(docker.toolNames());
-            }
-        }
-        return List.copyOf(names);
+    public CombinedToolRepository(HomelabToolCatalog catalog) {
+        this.catalog = catalog;
     }
 
     @Override
     public ToolsPage list(McpRequestContext context, String cursor) {
-        List<Tool> tools = toolNames().stream().map(name -> find(context, name)).toList();
-        return ToolsPage.of(tools);
+        return ToolsPage.of(catalog.toolNames().stream()
+                .map(name -> find(context, name))
+                .toList());
     }
 
     @Override
     public Tool find(McpRequestContext context, String name) {
-        for (McpSyncToolRepository repository : repositories) {
-            Tool tool = repository.find(context, name);
-            if (tool != null) {
-                return tool;
-            }
+        if (!catalog.contains(name)) {
+            return null;
         }
-        return null;
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("type", "object");
+        schema.put("properties", Map.of());
+        schema.put("additionalProperties", false);
+        return Tool.builder(name, schema)
+                .description(catalog.toolDescription(name))
+                .build();
     }
 
     @Override
     public McpSyncResponse<CallToolOutcome> call(McpRequestContext context, CallToolRequest request) {
-        for (McpSyncToolRepository repository : repositories) {
-            if (repository.find(context, request.name()) != null) {
-                return repository.call(context, request);
-            }
+        if (!catalog.contains(request.name())) {
+            throw new IllegalArgumentException("Unknown MCP tool: " + request.name());
         }
-        throw new IllegalArgumentException("Unknown MCP tool: " + request.name());
+        String result = catalog.execute(request.name());
+        return McpSyncResponse.result(CallToolResult.builder()
+                .addContent(TextContent.builder(result).build())
+                .isError(result.startsWith("Error:"))
+                .build());
     }
 }

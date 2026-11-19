@@ -2,16 +2,7 @@ package com.ikoyski.homelab.management.mcp.tools;
 
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryUseCase;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
-import io.modelcontextprotocol.modern.McpSchema.CallToolOutcome;
-import io.modelcontextprotocol.modern.McpSchema.CallToolRequest;
-import io.modelcontextprotocol.modern.McpSchema.CallToolResult;
-import io.modelcontextprotocol.modern.McpSchema.TextContent;
-import io.modelcontextprotocol.modern.McpSchema.Tool;
-import io.modelcontextprotocol.modern.server.McpRequestContext;
-import io.modelcontextprotocol.modern.server.McpSyncResponse;
-import io.modelcontextprotocol.modern.server.feature.McpSyncToolRepository;
-import io.modelcontextprotocol.modern.server.feature.ToolsPage;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,10 +12,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
-/** MCP inbound tool registration for application-owned Docker inventory results. */
+/** Read-only inventory tools for Docker data retrieved through Portainer. */
 @Component
 @ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
-public class DockerInventoryToolRepository implements McpSyncToolRepository {
+public class DockerInventoryToolRepository implements HomelabToolProvider {
+
     private static final Logger log = LoggerFactory.getLogger(DockerInventoryToolRepository.class);
     private static final String HOSTS = "list_docker_hosts";
     private static final String CONTAINERS = "list_docker_containers";
@@ -33,43 +25,31 @@ public class DockerInventoryToolRepository implements McpSyncToolRepository {
 
     private final DockerInventoryUseCase inventory;
     private final ObjectMapper mapper;
-    private final Map<String, Tool> tools;
+    private final Map<String, String> toolDescriptions;
 
     public DockerInventoryToolRepository(DockerInventoryUseCase inventory, ObjectMapper mapper) {
         this.inventory = inventory;
         this.mapper = mapper;
-        Map<String, Tool> definitions = new LinkedHashMap<>();
-        definitions.put(HOSTS, tool(HOSTS, "List the five configured Docker hosts and their availability."));
-        definitions.put(CONTAINERS, tool(CONTAINERS, "List allowlisted Docker container inventory fields across configured hosts."));
-        definitions.put(NETWORKS, tool(NETWORKS, "List allowlisted Docker network inventory fields across configured hosts."));
-        definitions.put(INVENTORY, tool(INVENTORY, "Get combined Docker host, container, and network inventory with partial-result information."));
-        this.tools = Map.copyOf(definitions);
+        Map<String, String> definitions = new LinkedHashMap<>();
+        definitions.put(HOSTS, "List the configured Docker hosts and their availability.");
+        definitions.put(CONTAINERS, "List allowlisted Docker container inventory fields across configured hosts.");
+        definitions.put(NETWORKS, "List allowlisted Docker network inventory fields across configured hosts.");
+        definitions.put(INVENTORY, "Get combined Docker host, container, and network inventory with partial-result information.");
+        this.toolDescriptions = Collections.unmodifiableMap(definitions);
     }
 
     @Override
-    public ToolsPage list(McpRequestContext context, String cursor) {
-        return ToolsPage.of(new ArrayList<>(tools.values()));
-    }
-
-    @Override
-    public Tool find(McpRequestContext context, String name) {
-        return tools.get(name);
-    }
-
     public List<String> toolNames() {
-        return List.copyOf(tools.keySet());
+        return List.copyOf(toolDescriptions.keySet());
     }
 
     @Override
-    public McpSyncResponse<CallToolOutcome> call(McpRequestContext context, CallToolRequest request) {
-        String result = execute(request.name());
-        return McpSyncResponse.result(CallToolResult.builder()
-                .addContent(TextContent.builder(result).build())
-                .isError(result.startsWith("Error:"))
-                .build());
+    public String toolDescription(String name) {
+        return toolDescriptions.get(name);
     }
 
-    private String execute(String name) {
+    @Override
+    public String execute(String name) {
         try {
             DockerInventory collected = inventory.collect();
             Object result = switch (name) {
@@ -97,13 +77,5 @@ public class DockerInventoryToolRepository implements McpSyncToolRepository {
         result.put("items", items);
         result.put("errors", inventory.errors());
         return result;
-    }
-
-    private static Tool tool(String name, String description) {
-        Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("type", "object");
-        schema.put("properties", Map.of());
-        schema.put("additionalProperties", false);
-        return Tool.builder(name, schema).description(description).build();
     }
 }

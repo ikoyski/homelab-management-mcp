@@ -9,13 +9,19 @@ Notable project changes are recorded here in reverse chronological order. This i
 - Upgraded Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, `ncloud-pve`) to Portainer CE 2.45.4. All five environments reconnected and were confirmed Up/reporting resources.
 - Docker Engine versions observed during the Portainer upgrade validation: 28.4.0 on local `util-pve`; 29.1.3 on the four remote Agent-managed environments.
 
+### Architecture decision
+- Accepted ADR-0003: keep the MCP as a modular monolith with distinct inbound MCP, Proxmox infrastructure, Portainer infrastructure, and application-owned inventory/domain modules. The separate Portainer Proxy deployment approach was abandoned; PR #5 was closed unmerged.
+
 ### Added
-- Created the separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository with an initial Java/Spring Boot skeleton, project documentation, and a proposed fixed-operation read-only proxy ADR. Its README reports a successful initial local Maven build.
+- Ported the Portainer HTTPS client foundation, API-key handling, bounded response-size interceptor, exact environment allowlist validation, dynamic endpoint resolver, and focused tests into the MCP's dedicated Portainer infrastructure module.
+- Added application-owned Docker host, container, network, published-port, and aggregate inventory models, a Docker inventory application port/use case, a Portainer adapter with per-environment failure isolation, and four conditional MCP Docker inventory tools.
+- Added modular-monolith architecture documentation and updated the Release 2 handoff and engineering instructions.
 
 ### Still outstanding for Release 2
-- Proxy functionality and the server-enforced read-only boundary are not implemented or verified. The proxy must expose only fixed inventory operations, reject non-GET methods, unknown paths and unapproved query parameters, and prevent MCP-to-Portainer bypass.
-- Java trust for the self-signed Portainer certificate must be provisioned and verified without disabling TLS certificate or hostname checks.
-- Docker inventory adapter and MCP tool implementation have not started.
+- Maven build and automated tests have not yet been run against this branch; verify CI before merge.
+- Add/verify container detail enrichment for restart count, StartedAt, and uptime; keep unavailable values null rather than inventing them.
+- Add private Portainer runtime properties to the MCP Config Server configuration and provision the self-signed certificate truststore in the MCP runtime. No Config Server secrets were changed in this work.
+- Validate the complete integration through an authenticated MCP client. No deployment or live Portainer connection has been performed.
 
 ## 2026-11-17
 

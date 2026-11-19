@@ -194,7 +194,7 @@ No write-capable Docker tools are included in Release 2.
 Store these only in the private Config Server or protected runtime environment:
 
 - **homelab.docker.portainer.base-url** — internal HTTPS Portainer Server URL.
-- **homelab.docker.portainer.api-key** — protected Portainer API token, or credential for the restricted proxy if that design is selected.
+- **homelab.docker.portainer.api-key** — protected Portainer API token used only by the Portainer infrastructure adapter.
 - **homelab.docker.portainer.connect-timeout-ms**.
 - **homelab.docker.portainer.read-timeout-ms**.
 - **homelab.docker.portainer.tls** — truststore configuration supplied through protected runtime settings.

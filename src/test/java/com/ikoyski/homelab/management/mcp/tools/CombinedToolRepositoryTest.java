@@ -1,5 +1,6 @@
 package com.ikoyski.homelab.management.mcp.tools;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,10 +40,13 @@ class CombinedToolRepositoryTest {
 
         CombinedToolRepository combined = new CombinedToolRepository(proxmox, docker);
 
+        assertEquals(9, combined.toolNames().size());
         for (String name : PROXMOX_TOOLS) {
+            assertTrue(combined.toolNames().contains(name));
             assertNotNull(combined.find(null, name), "Missing MCP tool: " + name);
         }
         for (String name : DOCKER_TOOLS) {
+            assertTrue(combined.toolNames().contains(name));
             assertNotNull(combined.find(null, name), "Missing MCP tool: " + name);
         }
     }
@@ -54,6 +58,7 @@ class CombinedToolRepositoryTest {
 
         CombinedToolRepository combined = new CombinedToolRepository(proxmox, null);
 
+        assertEquals(5, combined.toolNames().size());
         for (String name : PROXMOX_TOOLS) {
             assertNotNull(combined.find(null, name), "Missing MCP tool: " + name);
         }

@@ -56,6 +56,10 @@ public class DockerInventoryToolRepository implements McpSyncToolRepository {
         return tools.get(name);
     }
 
+    public List<String> toolNames() {
+        return List.copyOf(tools.keySet());
+    }
+
     @Override
     public McpSyncResponse<CallToolOutcome> call(McpRequestContext context, CallToolRequest request) {
         String result = execute(request.name());

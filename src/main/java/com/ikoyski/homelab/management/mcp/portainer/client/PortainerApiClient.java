@@ -1,6 +1,7 @@
 package com.ikoyski.homelab.management.mcp.portainer.client;
 
 import tools.jackson.databind.JsonNode;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -10,6 +11,7 @@ import org.springframework.web.client.RestClient;
  * the proxy; they are never part of the inbound API.
  */
 @Component
+@ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
 public class PortainerApiClient {
 
     private final RestClient restClient;

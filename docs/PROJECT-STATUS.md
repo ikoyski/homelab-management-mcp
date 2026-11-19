@@ -2,7 +2,7 @@
 
 > **Purpose:** Canonical continuity record for maintainers and AI coding assistants. Update this file whenever a milestone, architecture decision, validation result, or deployment state changes.
 >
-> **Last updated:** 2026-11-17 (Asia/Manila)
+> **Last updated:** 2026-11-19 (Asia/Manila)
 > **Repository:** `ikoyski/homelab-management-mcp`
 > **Current focus:** Release 2 — Docker read-only inventory
 
@@ -12,9 +12,9 @@
 |---|---|---|
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; live inventory was exercised through an authenticated MCP client. |
 | Release 2 — Docker inventory | Architecture documented; implementation not started | PR #18 merged the architecture; PR #19 merged Portainer upgrade-compatibility requirements. |
-| Portainer integration prerequisite | Blocked pending security upgrade and validation | The operator-reported CE 2.39.6 LTS is historical context only, not an approved integration target. |
-| Enforceable read-only Portainer access | Open design/verification item | Do not assume a Portainer API key is read-only. Select and test a server-enforced least-privilege boundary before enabling integration. |
-| Portainer TLS trust | Open deployment prerequisite | The Portainer certificate is self-signed. Trust it correctly; never disable certificate or hostname verification. |
+| Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported healthy. |
+| Enforceable read-only Portainer access | Open implementation prerequisite | Portainer CE token permissions are not assumed to be sufficiently restrictive. Implement and test the fixed-operation private read-only proxy before connecting the MCP. |
+| Portainer TLS trust | Open deployment prerequisite | Provision and verify Java trust for the self-signed Portainer certificate; retain certificate-chain and hostname verification. |
 | Natural-language status/reporting improvements | Deferred | Revisit after Docker support is complete. |
 
 ## Release 1 — completed
@@ -29,7 +29,7 @@ The deployed service provides these read-only tools:
 
 Completed work includes Proxmox node/guest/storage inventory, storage capacity metrics, QEMU guest filesystem metrics through the Guest Agent, safe failure diagnostics, stable response semantics, and partial-failure handling.
 
-The latest recorded live validation confirmed all five tools working and the combined inventory returning no errors. The user also tested a natural-language homelab status request through Claude. The report correctly described the Proxmox node and six guests, included storage/filesystem metrics, and noted that Docker was not yet supported.
+The latest live validation confirmed all five tools working and the combined inventory returning no errors, including all six guests. Claude Code has now successfully completed the Webtools OAuth flow, connected to the Homelab MCP, discovered/used its tools, and produced a natural-language report from live Proxmox inventory data. This validates the Claude Code client path; it does not imply Docker inventory is implemented.
 
 Important metric semantics:
 
@@ -67,15 +67,16 @@ Internal inventory DTOs must be independent of Portainer response DTOs. Environm
 
 The inventory must expose only explicitly allowlisted fields. Never return container environment variables, secrets, labels, commands, mounts, logs, raw inspect payloads, or arbitrary Docker metadata. No write-capable Docker tools belong in Release 2.
 
-## Release 2 — prerequisites still open
+## Release 2 — prerequisites and implementation status
 
-1. Upgrade Portainer Server first, then all Agents, to a currently supported, security-patched, mutually compatible release. Check current Portainer advisories and upgrade guidance at the time of the maintenance window; do not treat the historical 2.39.6 installation as safe for integration.
-2. Record the actual Server and Agent versions and verify all five environments reconnect.
-3. Decide and test a genuinely enforceable read-only access boundary. A token used only with GET requests is not sufficient by itself. If Portainer CE cannot enforce the required permissions, use a private fixed-operation read-only proxy and ensure the MCP cannot bypass it.
-4. Provision Java trust for the self-signed Portainer certificate, preserving normal certificate-chain and hostname/IP verification.
-5. Only then implement and enable the Portainer adapter.
+1. **Completed:** Upgrade Portainer Server first, then all Agents, to the compatible Portainer CE 2.45.4 release. All five environments were verified Up and reporting resources after the upgrade.
+2. **Open:** Implement and test a genuinely enforceable read-only access boundary. A token used only with GET requests is not sufficient by itself. Portainer CE token permissions are not assumed to provide the required restriction; use a private fixed-operation read-only proxy and ensure the MCP cannot bypass it.
+3. **Open:** Provision and verify Java trust for the self-signed Portainer certificate, preserving normal certificate-chain and hostname/IP verification.
+4. After the read-only boundary and TLS trust are verified, implement and enable the Portainer adapter.
 
 ## Portainer upgrade compatibility
+
+**Completed upgrade recorded 2026-11-19:** Portainer Server on `util-pve` and the four remote Agents on `dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve` were upgraded to Portainer CE **2.45.4**. The Server was upgraded first, followed by the Agents. Afterward, all five Portainer environments were confirmed Up and reporting resources. Docker Engine versions observed during validation were 28.4.0 on the local `util-pve` environment and 29.1.3 on the four remote Agent-managed environments. The Portainer environment counts included intentionally stopped containers; stopped containers were not treated as an upgrade failure. This is an observed homelab validation, not a guarantee against future regressions.
 
 PR #19 formalized the upgrade regression procedure in the Release 2 architecture. For each future supported upgrade:
 
@@ -85,6 +86,10 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 - Run the same MCP integration tests and compare inventory semantics.
 - Exercise one controlled Agent outage and recovery; other environments must continue returning data.
 - Record results. A backward-compatible upgrade should not require MCP code changes; a breaking API change requires explicit adapter compatibility work and regression tests.
+
+## Claude Code client validation
+
+**Validated 2026-11-19:** Claude Code successfully completed OAuth authorization against the Webtools Auth Server and connected to the deployed Homelab Management MCP. It was able to use the Proxmox inventory tools and produce a natural-language summary from the returned live inventory. This confirms the Claude Code OAuth/client integration path is working. Keep OAuth authorization, MCP initialization/tool discovery, and authenticated tool execution as distinct validation stages for future clients; a client registration alone is not proof of end-to-end operation.
 
 ## Decisions and constraints
 

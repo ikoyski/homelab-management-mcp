@@ -34,7 +34,7 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 - Keep the Portainer adapter separate from application-owned Docker inventory models and MCP DTOs.
 - Discover Portainer environment IDs at runtime; match environments against the server-side allowlist. Never accept caller-supplied endpoint IDs, URLs, API paths, or commands.
 - Include only the five approved environments: util-pve, dev-pve, earn-pve, media-pve, and ncloud-pve. Exclude shared-pve.
-- Do not enable integration against the historical Portainer CE 2.39.6 installation. First verify a currently supported, security-patched, mutually compatible Server/Agent release.
+- The homelab Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19; all five environments reconnected and reported resources. Check current advisories and compatibility guidance before future upgrades.
 - Establish and test a server-enforced read-only permission boundary. GET-only application behavior is not sufficient. If Portainer CE cannot enforce the needed restriction, use the fixed-operation private read-only proxy described in the architecture.
 - Preserve TLS certificate and hostname/IP verification. Trust the self-signed certificate correctly; never use trust-all TLS or insecure HTTP.
 - Isolate per-environment failures. One unavailable Agent must not suppress results from other environments.
@@ -63,7 +63,7 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 
 ## AI client integration status
 
-The Auth Server pre-registers provider-specific Homelab clients. A client registration existing in Config Server does not prove that the provider completed OAuth, MCP initialization or tool execution. Keep a dated test matrix in the private deployment runbook and mark each stage separately: OAuth authorization, MCP initialize/list-tools, and authenticated tool calls. Do not claim Gemini/Grok/Claude end-to-end compatibility without real tool results. The current Homelab MCP source exposes the modern MCP Servlet transport at `/mcp`; do not assume it has the Kanban MCP service's separate legacy transport.
+The Auth Server pre-registers provider-specific Homelab clients. A client registration existing in Config Server does not prove that the provider completed OAuth, MCP initialization or tool execution. **Claude Code was successfully validated on 2026-11-19:** OAuth authorization completed, the deployed Homelab MCP connection initialized, Proxmox tools were discovered/used, and a natural-language report was produced from live inventory data. Keep a dated test matrix in the private deployment runbook and mark each stage separately: OAuth authorization, MCP initialize/list-tools, and authenticated tool calls. Do not claim Gemini/Grok/other-client end-to-end compatibility without real tool results. The current Homelab MCP source exposes the modern MCP Servlet transport at `/mcp`; do not assume it has the Kanban MCP service's separate legacy transport.
 
 ## Documentation and continuity workflow
 

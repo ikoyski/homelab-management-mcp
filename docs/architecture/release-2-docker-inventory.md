@@ -6,7 +6,7 @@
 
 Release 2 adds read-only Docker discovery to the existing Homelab Management MCP. It complements Release 1 (Proxmox inventory) and does not replace or change the Proxmox adapter.
 
-The MCP connects only to the private **Homelab Portainer Proxy** ([separate repository](https://github.com/ikoyski/homelab-portainer-proxy)). The proxy connects to **one Portainer Server**. Portainer Server is the control-plane entry point for its local Docker Engine and the remote Docker Engines reached through Portainer Agents. Neither the MCP nor the proxy connects directly to remote Docker Engines or Agents; the proxy is the only component that calls the Portainer API.
+The MCP connects directly to **one Portainer Server** through its dedicated, internal Portainer infrastructure adapter. Portainer Server is the control-plane entry point for its local Docker Engine and the remote Docker Engines reached through Portainer Agents. The MCP does not connect directly to remote Docker Engines or Agents. The adapter is the only component in the application that calls the Portainer API.
 
 The initial configured Docker environment allowlist is:
 
@@ -32,11 +32,7 @@ Release 2 is strictly read-only. It does not start, stop, restart, create, updat
         v
     Homelab Management MCP
         |
-        | authenticated private proxy API
-        v
-    Homelab Portainer Proxy
-        |
-        | HTTPS with verified TLS
+        | dedicated Portainer adapter (fixed GET operations, verified TLS)
         v
     Portainer Server
         |-- local Docker Engine (util-pve)
@@ -45,13 +41,13 @@ Release 2 is strictly read-only. It does not start, stop, restart, create, updat
         |-- Portainer Agent --> Docker Engine (media-pve)
         '-- Portainer Agent --> Docker Engine (ncloud-pve)
 
-Only the proxy API is a network dependency of the MCP Docker adapter. The MCP must not connect directly to the Portainer Server, Agent port 9001, remote Docker TCP sockets, or remote Docker Unix sockets. The proxy discovers Portainer environment IDs, resolves them against its server-side allowlist, and issues fixed upstream requests to Portainer.
+Only the Portainer Server is a network dependency for Docker inventory. The MCP must not connect directly to Agent port 9001, remote Docker TCP sockets, or remote Docker Unix sockets. The internal Portainer adapter discovers environment IDs, resolves them against its private configured allowlist, and issues fixed upstream requests to Portainer.
 
-The MCP's proxy integration is an infrastructure adapter, not the domain model. Internal Docker host, container, network, port-binding, and inventory result models must be defined by this application and must not expose proxy response DTOs. The proxy independently maps Portainer responses into proxy-owned allowlisted DTOs; raw Portainer/Docker payloads are never forwarded. This keeps the MCP inventory contract independent of both Portainer and the proxy implementation.
+The Portainer integration is an infrastructure adapter, not the domain model. Internal Docker host, container, network, port-binding, and inventory result models must be defined by this application and must not expose Portainer response DTOs. The adapter maps Portainer responses into application-owned allowlisted inventory models; raw Portainer/Docker payloads are never forwarded. This keeps the MCP inventory contract independent of Portainer.
 
 ## Portainer API access
 
-The Portainer HTTPS base URL and credential are configured only in the private runtime configuration of `homelab-portainer-proxy`; they are not configured in the MCP. The proxy discovers environments using the Portainer endpoint-list API, resolves IDs against its server-side allowlist, and uses fixed Docker API operations. The MCP sees only the proxy's versioned inbound API and proxy-owned DTOs.
+The Portainer HTTPS base URL and API key are configured only in the private runtime configuration of `homelab-management-mcp`. The Portainer adapter discovers environments using the Portainer endpoint-list API, resolves IDs against the server-side allowlist, and uses fixed Docker API operations. No generic proxy endpoint or caller-controlled upstream path exists.
 
 The implementation should use only the documented Portainer API and Docker Engine API read operations needed for inventory. Candidate operations to validate against the deployed Portainer CE API specification include:
 
@@ -118,7 +114,7 @@ Portainer CE access-control capabilities must be verified for the selected relea
 Before implementation is enabled, choose and document an enforceable least-privilege boundary:
 
 - Prefer a Portainer account with only the minimum environment visibility and read permissions that the installed CE release can actually enforce.
-- If CE cannot enforce the required read-only access, place a small private read-only API gateway/proxy between the MCP and Portainer. It must expose only fixed inventory operations, reject every non-GET method, reject unknown paths and query parameters, and keep the Portainer credential private. The MCP must not have a network path that bypasses this proxy to Portainer.
+- If CE cannot enforce the required read-only access, enforce the boundary inside the dedicated Portainer adapter in the MCP: expose only fixed inventory methods that issue GET requests, reject caller-controlled paths/URLs/endpoint IDs and arbitrary query parameters, and keep the Portainer credential private. Do not add generic HTTP forwarding or write-capable Portainer methods.
 - Do not expose Portainer API publicly for this integration.
 - Do not store the Portainer credential in source control, tool arguments, logs, or returned inventory.
 
@@ -226,10 +222,9 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 ## Implementation sequence
 
 1. **Completed:** Upgrade and verify Portainer Server and Agents on Portainer CE 2.45.4; all five configured environments reconnected and reported resources.
-2. Implement the fixed-operation, default-deny proxy in [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy), including proxy-owned DTO mapping and security tests.
-3. Finalize authenticated MCP-to-proxy access and ensure no alternate MCP-to-Portainer network path exists.
-4. Provision and verify Java TLS trust for the self-signed Portainer certificate in the proxy runtime.
-5. Implement the MCP adapter against the proxy API, then continue with the Docker inventory tools.
+2. Implement a dedicated Portainer infrastructure module inside Homelab Management MCP with fixed GET-only operations, dynamic endpoint discovery, strict allowlisting, bounded responses, verified TLS, and tests.
+3. Provision and verify Java TLS trust for the self-signed Portainer certificate in the MCP runtime.
+4. Map Portainer responses into application-owned Docker inventory models, then implement the Docker inventory use cases and MCP tools.
 5. Implement environment discovery and configured-host matching.
 6. Implement **list_docker_hosts** and test all five environments.
 7. Implement container inventory and allowlisted detail enrichment.

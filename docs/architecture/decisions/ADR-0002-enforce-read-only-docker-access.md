@@ -15,7 +15,7 @@ Portainer Community Edition capabilities must be checked for the exact supported
 Before enabling the integration, establish and test a server-enforced least-privilege boundary.
 
 1. Use a Portainer identity with the minimum permissions the installed edition can actually enforce, if those permissions are sufficient for every required inventory operation.
-2. If that is not possible, put a private read-only API proxy between the MCP and Portainer. The proxy must expose only fixed inventory operations, allow only the required GET routes, reject unknown paths and query parameters, and keep the Portainer credential private.
+2. If that is not possible, use the separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) service as the private read-only API boundary between the MCP and Portainer. It must expose only fixed inventory operations, allow only the required GET routes, reject unknown paths and query parameters, map upstream responses into proxy-owned allowlisted DTOs, and keep the Portainer credential and endpoint IDs private.
 3. Ensure the MCP has no alternate network path that bypasses the restricted proxy.
 4. Keep TLS certificate and hostname verification enabled.
 5. Do not mount the Docker socket into the MCP.

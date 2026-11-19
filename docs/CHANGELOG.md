@@ -2,6 +2,18 @@
 
 Notable project changes are recorded here in reverse chronological order. This is a concise project-level history, not a replacement for Git commit history or release notes.
 
+## 2026-11-19
+
+### Validated
+- Claude Code successfully completed Webtools OAuth authorization, connected to the deployed Homelab Management MCP, discovered/used the Proxmox inventory tools, and generated a natural-language report from live inventory data.
+- Upgraded Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, `ncloud-pve`) to Portainer CE 2.45.4. All five environments reconnected and were confirmed Up/reporting resources.
+- Docker Engine versions observed during the Portainer upgrade validation: 28.4.0 on local `util-pve`; 29.1.3 on the four remote Agent-managed environments.
+
+### Still outstanding for Release 2
+- The server-enforced read-only boundary is not yet implemented/verified. The planned private fixed-operation GET-only proxy remains required unless Portainer CE permissions are proven sufficient.
+- Java trust for the self-signed Portainer certificate must be provisioned and verified without disabling TLS certificate or hostname checks.
+- Docker inventory adapter implementation has not started.
+
 ## 2026-11-17
 
 ### Added

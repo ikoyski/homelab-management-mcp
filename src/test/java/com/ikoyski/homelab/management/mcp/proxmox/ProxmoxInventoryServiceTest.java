@@ -89,7 +89,7 @@ class ProxmoxInventoryServiceTest {
                 .containsEntry("byteUnit", "bytes")
                 .containsEntry("mem", 13254696960L)
                 .containsEntry("maxmem", 16673116160L)
-                .containsEntry("disk", 0L);
+                .containsEntry("disk", 0);
     }
 
     @Test

@@ -118,6 +118,7 @@ public class ProxmoxInventoryService {
         copyNumberField(data, result, "total", "totalBytes");
         copyNumberField(data, result, "used", "usedBytes");
         copyNumberField(data, result, "avail", "availableBytes");
+        result.put("byteUnit", "bytes");
         copyScalarField(data, result, "active");
         copyScalarField(data, result, "enabled");
         copyScalarField(data, result, "shared");
@@ -277,7 +278,37 @@ public class ProxmoxInventoryService {
                 result.put(field,safeValue);
             }
         }
+        addResourceMetricMetadata(result);
         return result;
+    }
+
+    /**
+     * Adds deterministic, explicitly named derived metrics while preserving Proxmox's raw values.
+     * Byte-valued fields (mem/maxmem/disk/maxdisk) are always expressed in bytes.
+     */
+    static void addResourceMetricMetadata(Map<String,Object> result) {
+        if (List.of("mem", "maxmem", "disk", "maxdisk").stream().anyMatch(result::containsKey)) {
+            result.put("byteUnit", "bytes");
+        }
+
+        Object cpu = result.get("cpu");
+        if (cpu instanceof Number cpuFraction) {
+            BigDecimal fraction = new BigDecimal(cpuFraction.toString());
+            if (fraction.signum() >= 0 && fraction.compareTo(BigDecimal.ONE) <= 0) {
+                result.put("cpuUsagePercent",
+                        fraction.multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP));
+            }
+        }
+
+        Object usedMemory = result.get("mem");
+        Object totalMemory = result.get("maxmem");
+        if (usedMemory instanceof Number used && totalMemory instanceof Number total
+                && used.longValue() >= 0 && total.longValue() > 0) {
+            BigDecimal percent = BigDecimal.valueOf(used.longValue())
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(total.longValue()), 1, RoundingMode.HALF_UP);
+            result.put("memoryUsagePercent", percent);
+        }
     }
 
     static Map<String,Object> safeFilesystemFields(JsonNode node) {
@@ -294,6 +325,7 @@ public class ProxmoxInventoryService {
             result.put("totalBytes", totalBytes);
             result.put("usedBytes", usedBytes);
             result.put("availableBytes", Math.max(0L, totalBytes - usedBytes));
+            result.put("byteUnit", "bytes");
             if (totalBytes > 0) {
                 result.put("usagePercent", Math.round(usedBytes * 1000.0 / totalBytes) / 10.0);
             }

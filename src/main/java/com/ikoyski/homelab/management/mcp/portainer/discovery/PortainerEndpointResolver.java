@@ -1,7 +1,7 @@
-package com.ikoyski.homelab.management.mcp.portainer.allowlist;
+package com.ikoyski.homelab.management.mcp.portainer.discovery;
 
 import com.ikoyski.homelab.management.mcp.portainer.config.PortainerProperties;
-import com.ikoyski.homelab.management.mcp.portainer.upstream.PortainerApiClient;
+import com.ikoyski.homelab.management.mcp.portainer.client.PortainerApiClient;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Resolves configured proxy host keys to Portainer endpoint IDs discovered at runtime.
+ * Resolves configured host keys to Portainer endpoint IDs discovered at runtime.
  *
  * <p>Portainer endpoint names must exactly match configured host keys. Endpoint IDs
  * remain internal and are never accepted from or returned to an inbound caller.</p>

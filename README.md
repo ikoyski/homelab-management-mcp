@@ -155,7 +155,7 @@ mvn -B clean verify
 
 The Config Server must be reachable using protected bootstrap settings supplied by the runtime environment.
 
-## Future releases
+## Next release: Release 2 — Docker read-only inventory
 
 - [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19 and all five environments reconnected. The separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) repository contains the initial proxy skeleton; fixed-operation enforcement, TLS validation, and MCP integration remain outstanding. The design excludes shared-pve and keeps the MCP inventory model independent of Portainer.
 - Later releases: separately designed, explicitly authorized operational actions with approval and audit controls.

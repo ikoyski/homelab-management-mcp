@@ -22,17 +22,17 @@ public record PortainerProperties(
         if (baseUrl == null || !"https".equalsIgnoreCase(baseUrl.getScheme())
                 || baseUrl.getHost() == null || baseUrl.getUserInfo() != null
                 || baseUrl.getQuery() != null || baseUrl.getFragment() != null) {
-            throw new IllegalStateException("proxy.portainer.base-url must be a valid HTTPS URL");
+            throw new IllegalStateException("homelab.docker.portainer.base-url must be a valid HTTPS URL");
         }
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("proxy.portainer.api-key must be configured");
+            throw new IllegalStateException("homelab.docker.portainer.api-key must be configured");
         }
         if (connectTimeoutMs <= 0 || readTimeoutMs <= 0 || maxResponseBytes <= 0) {
             throw new IllegalStateException("Portainer timeouts and response-size limit must be positive");
         }
         if (environments == null || environments.allowlist() == null
                 || environments.allowlist().isEmpty()) {
-            throw new IllegalStateException("proxy.portainer.environments.allowlist must not be empty");
+            throw new IllegalStateException("homelab.docker.portainer.environments.allowlist must not be empty");
         }
         if (environments.allowlist().stream().anyMatch(key -> key == null
                 || !key.matches("[a-z][a-z0-9-]{0,62}"))

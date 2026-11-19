@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -17,6 +18,7 @@ import tools.jackson.databind.JsonNode;
  * remain internal and are never accepted from or returned to an inbound caller.</p>
  */
 @Component
+@ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
 public class PortainerEndpointResolver {
 
     private final PortainerApiClient portainer;

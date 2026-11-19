@@ -10,7 +10,6 @@ import io.modelcontextprotocol.modern.server.transport.HttpServletMcpTransport;
 import io.modelcontextprotocol.server.transport.HttpServletStatelessServerTransport;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-import com.ikoyski.homelab.management.mcp.transport.McpProtocolRouterServlet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -25,7 +24,7 @@ class McpProtocolRouterServletTest {
     void setUp() {
         modern = mock(HttpServletMcpTransport.class);
         legacy = mock(HttpServletStatelessServerTransport.class);
-        router = new McpProtocolRouterServlet(modern, legacy, new ObjectMapper());
+        router = new McpProtocolRouterServlet(modern, legacy, new ObjectMapper(), 256);
     }
 
     @Test
@@ -70,6 +69,19 @@ class McpProtocolRouterServletTest {
         router.service((ServletRequest) request, (ServletResponse) response);
 
         assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(modern, legacy);
+    }
+
+    @Test
+    void rejectsRequestBodiesLargerThanConfiguredLimitBeforeRouting() throws Exception {
+        var request = new MockHttpServletRequest("POST", "/mcp");
+        request.setContentType("application/json");
+        request.setContent(new byte[257]);
+        var response = new MockHttpServletResponse();
+
+        router.service((ServletRequest) request, (ServletResponse) response);
+
+        assertThat(response.getStatus()).isEqualTo(413);
         verifyNoInteractions(modern, legacy);
     }
 

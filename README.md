@@ -154,7 +154,7 @@ The service is deployed as a Docker container on a private homelab management ho
 After CI publishes the image, update only this service:
 
 ```bash
-cd <private-compose-directory>
+cd /path/to/private/compose-directory
 sudo docker compose pull homelab-management-mcp
 sudo docker compose up -d --no-deps --force-recreate --pull never homelab-management-mcp
 sudo docker compose ps homelab-management-mcp
@@ -164,7 +164,7 @@ sudo docker compose logs --tail=80 homelab-management-mcp
 Verify health from the internal Docker network:
 
 ```bash
-sudo docker run --rm --network utility_default curlimages/curl:latest \
+sudo docker run --rm --network "$HOMELAB_DOCKER_NETWORK" curlimages/curl:latest \
   -fsS http://homelab-management-mcp:8082/actuator/health
 ```
 

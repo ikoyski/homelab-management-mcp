@@ -154,16 +154,18 @@ Return only explicitly allowlisted fields:
 - Container name.
 - Image reference.
 - State and status.
-- Health status when a health check is configured; distinguish not-configured from healthy.
-- Restart count.
+- Health status from structured Docker inspect data: `healthy`, `unhealthy`, or `starting`; use `not_configured` when the inspect response has no health check, and leave it null when detail enrichment is unavailable.
+- Restart count from the container inspect summary.
 - Created timestamp and StartedAt timestamp.
-- Calculated uptime when StartedAt is valid and the container is running.
-- Attached Docker network names.
+- Calculated uptime from StartedAt and the collection timestamp only when Docker reports the container is running and StartedAt is valid.
+- Attached Docker network names from the container-list response.
 - Published port bindings (container port, host port, and protocol).
+
+Container detail enrichment uses the fixed read-only inspect operation for each discovered container. At most four inspect requests run concurrently per collection. If an inspect request fails, retain the base container summary, leave unavailable detail fields null, and mark that host's result as partial with a sanitized `container_details_unavailable` error.
 
 An empty published-port list is meaningful and must be returned as an empty list, not omitted.
 
-Do not return environment variables, labels, commands, entrypoints, mounts, bind paths, secrets, raw inspect payloads, logs, or arbitrary Docker metadata. Avoid returning container IP addresses, MAC addresses, or other network details unless a later requirement explicitly justifies them.
+Do not return environment variables, labels, commands, entrypoints, mounts, bind paths, secrets, raw inspect payloads, logs, or arbitrary Docker metadata. The adapter extracts only the allowlisted restart, state, health, and start-time fields from inspect responses. Avoid returning container IP addresses, MAC addresses, or other network details unless a later requirement explicitly justifies them.
 
 ### Networks
 
@@ -174,6 +176,8 @@ Return only allowlisted network fields:
 - Internal and attachable flags when available.
 - Names/IDs of connected containers, without exposing raw endpoint configuration.
 
+When Portainer's network response omits connected-container details, derive membership by matching each network name to the same host's container-side network attachments. Keep this fallback scoped by host; do not infer membership across Docker Engines.
+
 Do not return network IPAM configuration, subnets, gateways, container IP addresses, options, labels, or raw API payloads in the initial release.
 
 ## MCP tools
@@ -181,11 +185,13 @@ Do not return network IPAM configuration, subnets, gateways, container IP addres
 The planned tools are:
 
 - **list_docker_hosts** — reports the configured Docker environments and their availability.
-- **list_docker_containers** — lists allowlisted container details, optionally scoped to a configured host key.
-- **list_docker_networks** — lists Docker networks and connected container identities.
+- **list_docker_containers** — lists allowlisted container details across all configured hosts, or one host when the optional `hostKey` argument is supplied.
+- **list_docker_networks** — lists Docker networks and connected container identities across all configured hosts, or one host when the optional `hostKey` argument is supplied.
 - **get_docker_inventory** — combines host, container, and network inventory with collection timestamps and partial-result information.
 
-Tool inputs must not accept arbitrary URLs, Portainer endpoint IDs, Docker API paths, commands, container exec instructions, or credentials. Any optional host selector must refer only to a configured internal host key.
+The optional `hostKey` argument is supported only by `list_docker_containers` and `list_docker_networks`. It must exactly match a configured internal host key; an invalid key is rejected before any Portainer request. Omitting it returns results across all configured hosts.
+
+Tool inputs must not accept arbitrary URLs, Portainer endpoint IDs, Docker API paths, commands, container exec instructions, or credentials.
 
 No write-capable Docker tools are included in Release 2.
 
@@ -199,6 +205,8 @@ Store these only in the private Config Server or protected runtime environment:
 - **homelab.docker.portainer.read-timeout-ms**.
 - **homelab.docker.portainer.tls** — truststore configuration supplied through protected runtime settings.
 - **homelab.docker.environments** — explicit allowlist mapping configured environment names to internal host keys and Proxmox guest identifiers.
+
+The Portainer API key inherits the permissions of its Portainer user. The adapter exposes only fixed GET operations, but an administrator-owned API key retains administrator-level upstream privileges if compromised; treat it as a high-impact credential and keep it only in the private Config Server/runtime environment.
 
 Do not commit real URLs, private IP addresses, API keys, truststores, passwords, or certificate material to this repository. Do not place environment-specific Portainer endpoint IDs in configuration; discover them from Portainer and match by the configured environment identity.
 

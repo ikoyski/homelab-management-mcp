@@ -58,6 +58,38 @@ class PortainerApiClientTest {
         server.verify();
     }
 
+
+    @Test
+    void retrievesBoundedTimestampedStdoutAndStderrWithoutFollowing() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://portainer.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        PortainerApiClient client = new PortainerApiClient(builder.build());
+
+        server.expect(requestTo("https://portainer.test/api/endpoints/7/docker/containers/"
+                        + CONTAINER_ID + "/logs?stdout=true&stderr=true&timestamps=true&follow=false&tail=100"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("2026-11-20T10:00:00Z sample log\n", MediaType.TEXT_PLAIN));
+
+        DockerLogPayload payload = client.getContainerLogs(7, CONTAINER_ID, 100);
+
+        assertNotNull(payload);
+        assertEquals(false, payload.truncated());
+        assertEquals("2026-11-20T10:00:00Z sample log\n",
+                new String(payload.bytes(), java.nio.charset.StandardCharsets.UTF_8));
+        server.verify();
+    }
+
+    @Test
+    void rejectsInvalidLogTailAndContainerIdsBeforeMakingRequests() {
+        PortainerApiClient client = new PortainerApiClient(
+                RestClient.builder().baseUrl("https://portainer.test").build());
+
+        assertThrows(IllegalArgumentException.class, () -> client.getContainerLogs(7, CONTAINER_ID, 0));
+        assertThrows(IllegalArgumentException.class, () -> client.getContainerLogs(7, CONTAINER_ID, 201));
+        assertThrows(IllegalArgumentException.class, () -> client.getContainerLogs(0, CONTAINER_ID, 100));
+        assertThrows(IllegalArgumentException.class, () -> client.getContainerLogs(7, "../info", 100));
+    }
+
     @Test
     void rejectsInvalidEndpointAndContainerIdsBeforeMakingRequests() {
         PortainerApiClient client = new PortainerApiClient(

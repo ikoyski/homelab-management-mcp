@@ -6,7 +6,7 @@
 
 ## Context
 
-The homelab has one Portainer Server on `util-pve`, managing its local Docker Engine and four remote Docker Engines through Portainer Agents. The MCP needs a maintainable way to discover Docker hosts, containers, and networks across those environments.
+The deployment uses one Portainer Server to manage its local Docker Engine and remote Docker Engines through Portainer Agents. The MCP needs a maintainable way to discover Docker hosts, containers, and networks across the configured environments.
 
 Direct connections from the MCP to every Docker Engine or Agent would spread network access and transport-specific behavior through the application. Coupling the public inventory contract to Portainer response objects would also make a future transport replacement unnecessarily invasive.
 
@@ -16,7 +16,7 @@ Use the single Portainer Server API as the initial discovery and transport layer
 
 Keep the Docker inventory domain model, application services, and MCP response DTOs owned by this application. Isolate Portainer API calls and response mapping in an infrastructure adapter. Do not expose Portainer endpoint IDs as stable public identifiers.
 
-The configured allowlist contains `util-pve`, `dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve`. Exclude `shared-pve`.
+The configured environment allowlist is maintained in private runtime configuration. Only exact environment identities present in that allowlist are discovered; unlisted environments are excluded. The public repository does not enumerate environment names or mappings.
 
 ## Consequences
 

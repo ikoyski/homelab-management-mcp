@@ -73,25 +73,25 @@ The deployed service also provides read-only Docker inventory through one Portai
 | `list_docker_containers` | Lists containers across all configured hosts; optional exact `hostKey` filter |
 | `list_docker_networks` | Lists networks across all configured hosts; optional exact `hostKey` filter |
 | `get_docker_inventory` | Combines host, container, and network inventory |
-| `get_docker_container_logs` | Proposed next tool on the feature branch: bounded recent logs for one exact container on one configured host |
+| `get_docker_container_logs` | Retrieves a bounded recent stdout/stderr snapshot for one exact container on one configured host |
 
 The deployed container and network list tools accept an optional `hostKey` argument. It must exactly match a configured host key; omitted means all configured hosts. Caller-supplied Portainer endpoint IDs and API paths are never accepted.
 
-The deployed inventory was independently validated with Claude Code, Grok, and Gemini across all five hosts. The observed baseline contained 43 containers (39 running and 4 intentionally exited) and 23 networks. Gemini also validated both host-scoped list filters against the corresponding global inventory subsets across all five hosts. The four exited containers are intentional inventory states, not cleanup recommendations. Those exited containers are expected inventory states, not cleanup recommendations.
+The deployed inventory was independently validated with Claude Code, Grok, and Gemini across all five hosts. The observed baseline contained 43 containers (39 running and 4 intentionally exited) and 23 networks. Gemini also validated both host-scoped list filters against the corresponding global inventory subsets across all five hosts. The four exited containers are intentional inventory states, not cleanup recommendations.
 
 Container detail enrichment uses a fixed GET-only inspect operation, extracts only explicitly allowlisted fields, and is bounded to four concurrent inspections per collection. If detail enrichment fails, the base container result is preserved and the affected host is marked partial. Missing network membership is derived only from container-side attachments on the same host.
 
-### Container log retrieval (feature branch; not deployed)
+### Container log retrieval (merged and deployed)
 
-The `feat/docker-container-log-reading` branch adds `get_docker_container_logs`. It accepts an exact configured `hostKey`, an exact discovered `containerName`, and an optional `tail` value (default 100, maximum 200). The server resolves the Portainer environment from the private allowlist, discovers the container ID from that environment's container listing, and calls only the fixed Docker logs GET operation. Callers cannot supply endpoint IDs, container IDs, URLs, API paths, or arbitrary query parameters.
+PR #30 added `get_docker_container_logs`; it is included in the deployed service as of 2026-11-21 (Asia/Manila). It accepts an exact configured `hostKey`, an exact discovered `containerName`, and an optional `tail` value (default 100, maximum 200). The server resolves the Portainer environment from the private allowlist, discovers the container ID from that environment's container listing, and calls only the fixed Docker logs GET operation. Callers cannot supply endpoint IDs, container IDs, URLs, API paths, or arbitrary query parameters.
 
-The request always selects stdout and stderr, includes timestamps, and sets `follow=false`. Response bytes are capped at 256 KiB; Docker multiplexed stdout/stderr frames and plain-text TTY output are handled. Common credential patterns receive best-effort redaction, but this is not a guarantee that logs contain no secrets or personal information. Log contents are sent to the connected AI provider. Docker's standard logs endpoint only supports the `json-file` and `journald` logging drivers; other drivers may return an unavailable result. This feature is not available in the deployed runtime until its PR passes CI, is merged, and the operator deploys the updated image.
+The request always selects stdout and stderr, includes timestamps, and sets `follow=false`. Response bytes are capped at 256 KiB; Docker multiplexed stdout/stderr frames and plain-text TTY output are handled. Common credential patterns receive best-effort redaction, but this is not a guarantee that logs contain no secrets or personal information. Log contents are sent to the connected AI provider. Docker's standard logs endpoint only supports the `json-file` and `journald` logging drivers; other drivers may return an unavailable result. The tool is deployed but has not yet been independently confirmed against live container logs.
 
 The Portainer API key inherits its user's Portainer permissions. The adapter exposes only fixed GET operations, but an administrator-owned API key retains administrator-level upstream privileges if compromised; protect it as a high-impact credential. See [Release 2 architecture](docs/architecture/release-2-docker-inventory.md) for the full contract.
 
 ## AI client integration
 
-Claude Code, Grok, and Gemini have been validated against the deployed Homelab MCP. All three retrieved Proxmox and Docker inventory. Gemini also validated the container and network `hostKey` filters on all five configured hosts and compared filtered records against the global inventories. The observed Docker baseline was 43 containers, including four intentionally exited containers, and 23 networks. These are observed end-to-end client results; they do not imply that every future diagnostic feature has been tested.
+Claude Code, Grok, and Gemini have been validated against the deployed Homelab MCP for Proxmox and Docker inventory. Gemini also validated the container and network `hostKey` filters across all five configured hosts against global inventory. The observed Docker baseline was 43 containers, including four intentionally exited containers, and 23 networks. The new container-log tool is deployed, but its live AI-client execution still needs validation.
 
 ## Security boundaries
 

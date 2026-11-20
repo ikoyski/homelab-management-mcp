@@ -1,6 +1,7 @@
 package com.ikoyski.homelab.management.mcp.portainer.client;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -13,6 +14,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 class PortainerApiClientTest {
+
+    private static final String CONTAINER_ID = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
 
     @Test
     void usesOnlyFixedGetOperationsAndThePortainerApiKeyHeader() {
@@ -37,6 +40,11 @@ class PortainerApiClientTest {
                 .andExpect(header("X-API-Key", "test-api-key"))
                 .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
+        server.expect(requestTo("https://portainer.test/api/endpoints/7/docker/containers/" + CONTAINER_ID + "/json"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-API-Key", "test-api-key"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
         server.expect(requestTo("https://portainer.test/api/endpoints/7/docker/networks"))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("X-API-Key", "test-api-key"))
@@ -45,20 +53,20 @@ class PortainerApiClientTest {
         assertNotNull(client.listEndpoints());
         assertNotNull(client.getDockerInfo(7));
         assertNotNull(client.listContainers(7));
+        assertNotNull(client.inspectContainer(7, CONTAINER_ID));
         assertNotNull(client.listNetworks(7));
         server.verify();
     }
 
     @Test
-    void rejectsInvalidEndpointIdsBeforeMakingRequests() {
+    void rejectsInvalidEndpointAndContainerIdsBeforeMakingRequests() {
         PortainerApiClient client = new PortainerApiClient(
                 RestClient.builder().baseUrl("https://portainer.test").build());
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class, () -> client.getDockerInfo(0));
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class, () -> client.listContainers(-1));
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class, () -> client.listNetworks(0));
+        assertThrows(IllegalArgumentException.class, () -> client.getDockerInfo(0));
+        assertThrows(IllegalArgumentException.class, () -> client.listContainers(-1));
+        assertThrows(IllegalArgumentException.class, () -> client.listNetworks(0));
+        assertThrows(IllegalArgumentException.class, () -> client.inspectContainer(1, "../info"));
+        assertThrows(IllegalArgumentException.class, () -> client.inspectContainer(1, "short"));
     }
 }

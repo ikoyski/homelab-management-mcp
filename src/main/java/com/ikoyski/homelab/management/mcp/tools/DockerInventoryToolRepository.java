@@ -1,7 +1,9 @@
 package com.ikoyski.homelab.management.mcp.tools;
 
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryUseCase;
+import com.ikoyski.homelab.management.mcp.inventory.application.DockerContainerLogsUseCase;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,7 +25,19 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
     private static final String CONTAINERS = "list_docker_containers";
     private static final String NETWORKS = "list_docker_networks";
     private static final String INVENTORY = "get_docker_inventory";
+    private static final String CONTAINER_LOGS = "get_docker_container_logs";
     private static final Set<String> HOST_FILTER_TOOLS = Set.of(CONTAINERS, NETWORKS);
+    private static final Map<String, Object> CONTAINER_LOGS_SCHEMA = Map.of(
+            "type", "object",
+            "properties", Map.of(
+                    "hostKey", Map.of("type", "string", "minLength", 1, "maxLength", 63,
+                            "description", "Exact configured Docker host key."),
+                    "containerName", Map.of("type", "string", "minLength", 1, "maxLength", 255,
+                            "description", "Exact discovered container name on the selected host."),
+                    "tail", Map.of("type", "integer", "minimum", 1, "maximum", 200,
+                            "description", "Maximum number of recent log lines. Defaults to 100; maximum 200.")),
+            "required", List.of("hostKey", "containerName"),
+            "additionalProperties", false);
 
     private static final Map<String, Object> HOST_FILTER_SCHEMA = Map.of(
             "type", "object",
@@ -36,11 +50,13 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
             "additionalProperties", false);
 
     private final DockerInventoryUseCase inventory;
+    private final DockerContainerLogsUseCase containerLogs;
     private final ObjectMapper mapper;
     private final Map<String, String> toolDescriptions;
 
-    public DockerInventoryToolRepository(DockerInventoryUseCase inventory, ObjectMapper mapper) {
+    public DockerInventoryToolRepository(DockerInventoryUseCase inventory, DockerContainerLogsUseCase containerLogs, ObjectMapper mapper) {
         this.inventory = inventory;
+        this.containerLogs = containerLogs;
         this.mapper = mapper;
         Map<String, String> definitions = new LinkedHashMap<>();
         definitions.put(HOSTS, "List the configured Docker hosts and their availability.");
@@ -50,6 +66,8 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
                 "List allowlisted Docker network inventory fields across configured hosts. Optionally filter to one configured host with hostKey.");
         definitions.put(INVENTORY,
                 "Get combined Docker host, container, and network inventory with collection timestamps and partial-result information.");
+        definitions.put(CONTAINER_LOGS,
+                "Retrieve a bounded, non-following snapshot of recent stdout/stderr logs for one exact discovered container on one configured host. Returns best-effort redacted log text; logs may still contain sensitive data.");
         this.toolDescriptions = Collections.unmodifiableMap(definitions);
     }
 
@@ -65,7 +83,10 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
 
     @Override
     public Map<String, Object> toolInputSchema(String name) {
-        return HOST_FILTER_TOOLS.contains(name) ? HOST_FILTER_SCHEMA : HomelabToolProvider.super.toolInputSchema(name);
+        if (HOST_FILTER_TOOLS.contains(name)) {
+            return HOST_FILTER_SCHEMA;
+        }
+        return CONTAINER_LOGS.equals(name) ? CONTAINER_LOGS_SCHEMA : HomelabToolProvider.super.toolInputSchema(name);
     }
 
     @Override
@@ -76,6 +97,12 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
     @Override
     public String execute(String name, Map<String, Object> arguments) {
         try {
+            if (CONTAINER_LOGS.equals(name)) {
+                LogRequest request = logRequest(arguments);
+                DockerContainerLogs result = containerLogs.readLogs(
+                        request.hostKey(), request.containerName(), request.tail());
+                return mapper.writeValueAsString(result);
+            }
             String hostKey = requestedHostKey(name, arguments);
             DockerInventory collected = hostKey == null ? inventory.collect() : inventory.collect(hostKey);
             Object result = switch (name) {
@@ -91,7 +118,7 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
             log.info("mcp_tool_call_completed tool={} hostFilter={}", name, hostKey == null ? "all" : "configured");
             return mapper.writeValueAsString(result);
         } catch (IllegalArgumentException ex) {
-            return "Error: Invalid Docker inventory arguments.";
+            return "Error: Invalid Docker inventory or log arguments.";
         } catch (RuntimeException ex) {
             log.error("Unable to execute or serialize Docker inventory MCP tool tool={}", name);
             return "Error: Unable to retrieve or serialize Docker inventory.";
@@ -117,6 +144,39 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
             throw new IllegalArgumentException("hostKey must be a non-empty string");
         }
         return hostKey;
+    }
+
+
+    private static LogRequest logRequest(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
+        if (!safeArguments.keySet().containsAll(Set.of("hostKey", "containerName"))
+                || !Set.of("hostKey", "containerName", "tail").containsAll(safeArguments.keySet())) {
+            throw new IllegalArgumentException("hostKey and containerName are required; only tail is optional");
+        }
+        Object hostValue = safeArguments.get("hostKey");
+        Object nameValue = safeArguments.get("containerName");
+        if (!(hostValue instanceof String hostKey) || hostKey.isBlank()
+                || !(nameValue instanceof String containerName) || containerName.isBlank()) {
+            throw new IllegalArgumentException("hostKey and containerName must be non-empty strings");
+        }
+
+        int tail = 100;
+        if (safeArguments.containsKey("tail")) {
+            Object tailValue = safeArguments.get("tail");
+            if (!(tailValue instanceof Number number)) {
+                throw new IllegalArgumentException("tail must be an integer");
+            }
+            double numeric = number.doubleValue();
+            if (!Double.isFinite(numeric) || numeric != Math.rint(numeric)
+                    || numeric < 1 || numeric > 200) {
+                throw new IllegalArgumentException("tail must be between 1 and 200");
+            }
+            tail = (int) numeric;
+        }
+        return new LogRequest(hostKey, containerName, tail);
+    }
+
+    private record LogRequest(String hostKey, String containerName, int tail) {
     }
 
     private static Map<String, Object> section(DockerInventory inventory, Object items) {

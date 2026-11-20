@@ -18,7 +18,7 @@ Build a private-homelab discovery and management MCP server. Start with read-onl
 - Spring Cloud Config Client for private runtime configuration.
 - MCP Java SDK with Streamable HTTP transport at `/mcp`.
 - Actuator health/metrics for operations.
-- Deploy on `util-pve` as a Docker container.
+- Deploy as a Docker container on the private homelab management host.
 - Do not introduce Kubernetes dependencies in this project.
 - Keep the source repo free of environment-specific IP addresses and ports.
 
@@ -33,7 +33,7 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 - Connect only to the single Portainer Server through a dedicated Portainer infrastructure module; do not connect directly to Portainer Agents or Docker Engines.
 - Keep the Portainer adapter separate from application-owned Docker inventory models and MCP DTOs.
 - Discover Portainer environment IDs at runtime; match environments against the server-side allowlist. Never accept caller-supplied endpoint IDs, URLs, API paths, or commands.
-- Include only the five approved environments: util-pve, dev-pve, earn-pve, media-pve, and ncloud-pve. Exclude shared-pve.
+- Use only Docker environment identities supplied by the private server-side allowlist. Do not hardcode real host names, guest identifiers, or mappings in source or public documentation; environments absent from the private allowlist must be excluded.
 - The homelab Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19; all five environments reconnected and reported resources. Check current advisories and compatibility guidance before future upgrades.
 - Enforce the read-only boundary inside the Portainer infrastructure module: expose only fixed, code-defined GET operations; do not provide generic URL/path forwarding, arbitrary query parameters, caller-supplied endpoint IDs, or write-capable methods. The adapter must keep credentials and discovered endpoint IDs private.
 - Keep the system as a modular monolith: separate MCP inbound, Proxmox infrastructure, Portainer infrastructure, and application-owned inventory/domain responsibilities. Proxmox and Portainer modules must not depend on one another; MCP tool handlers must not contain upstream HTTP logic.
@@ -64,7 +64,7 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 - Required Config Server properties are `homelab.proxmox.api-url`, `homelab.proxmox.token-id` and `homelab.proxmox.token-secret`; connect/read timeouts default to 3000/8000 ms.
 - The API URL must use HTTPS. Preserve Java's default trust roots when adding a private Proxmox CA: copy the image JRE's original `cacerts`, import the CA with `keytool`, mount the resulting truststore read-only and set `JAVA_TOOL_OPTIONS` to its path/password.
 - Never disable certificate or hostname verification, never use trust-all SSL, and never bake private environment CA material into this public image.
-- The deployment-specific certificate procedure is in the private `myhomelab` repository: `pve/util-pve/docs/proxmox-ca-trust.md`.
+- The deployment-specific certificate procedure is maintained in the private homelab deployment runbook; do not copy host names, paths, addresses, or trust material into this public repository.
 - The Docker service intentionally has no host-published MCP or actuator port. Test inside the container or through the authenticated public MCP URL; an unauthenticated `GET /mcp` returning 401 is expected.
 - Do not expose `Authorization` values or the Proxmox token secret in commands, logs, examples or generated docs. The auth header format is `PVEAPIToken=<token-id>=<token-secret>`.
 

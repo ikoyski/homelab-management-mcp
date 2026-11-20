@@ -9,7 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryUseCase;
+import com.ikoyski.homelab.management.mcp.inventory.application.DockerContainerLogsUseCase;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
 import com.ikoyski.homelab.management.mcp.proxmox.ProxmoxInventoryService;
 import java.time.Instant;
 import java.util.List;
@@ -31,14 +33,15 @@ class CombinedToolRepositoryTest {
             "list_docker_hosts",
             "list_docker_containers",
             "list_docker_networks",
-            "get_docker_inventory");
+            "get_docker_inventory",
+            "get_docker_container_logs");
 
     @Test
     void modernAdapterAdvertisesTheSharedNineToolCatalogWhenPortainerIsConfigured() {
         HomelabToolCatalog catalog = configuredCatalog();
         CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
-        assertEquals(9, catalog.toolNames().size());
+        assertEquals(10, catalog.toolNames().size());
         assertEquals(catalog.toolNames().size(), modernAdapter.list(null, null).tools().size());
 
         for (String name : PROXMOX_TOOLS) {
@@ -70,6 +73,14 @@ class CombinedToolRepositoryTest {
 
         Map<String, Object> inventorySchema = modernAdapter.find(null, "get_docker_inventory").inputSchema();
         assertEquals(Map.of(), inventorySchema.get("properties"));
+
+        Map<String, Object> logsSchema = modernAdapter.find(null, "get_docker_container_logs").inputSchema();
+        Map<String, Object> logsProperties = (Map<String, Object>) logsSchema.get("properties");
+        Map<String, Object> tailSchema = (Map<String, Object>) logsProperties.get("tail");
+        assertEquals(false, logsSchema.get("additionalProperties"));
+        assertEquals(List.of("hostKey", "containerName"), logsSchema.get("required"));
+        assertEquals(1, tailSchema.get("minimum"));
+        assertEquals(200, tailSchema.get("maximum"));
     }
 
     @Test
@@ -78,7 +89,8 @@ class CombinedToolRepositoryTest {
         DockerInventory empty = new DockerInventory("ok", Instant.now(),
                 List.of(), List.of(), List.of(), List.of());
         when(useCase.collect("dev-pve")).thenReturn(empty);
-        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(useCase, new ObjectMapper());
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                useCase, mock(DockerContainerLogsUseCase.class), new ObjectMapper());
         HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
 
         String response = catalog.execute("list_docker_containers", Map.of("hostKey", "dev-pve"));
@@ -117,13 +129,50 @@ class CombinedToolRepositoryTest {
         assertTrue(unconfigured.execute("get_discovery_scope").contains("\"dockerInventoryConfigured\":false"));
     }
 
+
+    @Test
+    void dockerLogToolDispatchesTheExactHostContainerAndBoundedTail() {
+        DockerInventoryUseCase inventory = mock(DockerInventoryUseCase.class);
+        DockerContainerLogsUseCase logs = mock(DockerContainerLogsUseCase.class);
+        when(logs.readLogs("docker-host-a", "sample", 25)).thenReturn(
+                new DockerContainerLogs("ok", "docker-host-a", "sample", 25, 12,
+                        false, 0, "sample log\n", null));
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                inventory, logs, new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
+
+        String result = catalog.execute("get_docker_container_logs",
+                Map.of("hostKey", "docker-host-a", "containerName", "sample", "tail", 25));
+
+        assertTrue(result.contains("\"status\":\"ok\""));
+        assertTrue(result.contains("\"logs\":\"sample log"));
+        verify(logs).readLogs("docker-host-a", "sample", 25);
+    }
+
+    @Test
+    void dockerLogToolRejectsUnknownArgumentsAndOutOfRangeTailBeforeProviderCall() {
+        DockerContainerLogsUseCase logs = mock(DockerContainerLogsUseCase.class);
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                mock(DockerInventoryUseCase.class), logs, new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
+
+        String unknown = catalog.execute("get_docker_container_logs",
+                Map.of("hostKey", "docker-host-a", "containerName", "sample", "path", "/etc/passwd"));
+        String invalidTail = catalog.execute("get_docker_container_logs",
+                Map.of("hostKey", "docker-host-a", "containerName", "sample", "tail", 201));
+
+        assertTrue(unknown.startsWith("Error:"));
+        assertTrue(invalidTail.startsWith("Error:"));
+        org.mockito.Mockito.verifyNoInteractions(logs);
+    }
+
     private static HomelabToolCatalog configuredCatalog() {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("homelab.docker.portainer.base-url", "https://portainer.example/");
         HomelabDiscoveryToolRepository proxmox = new HomelabDiscoveryToolRepository(
                 environment, mock(ProxmoxInventoryService.class), new ObjectMapper());
         DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
-                mock(DockerInventoryUseCase.class), new ObjectMapper());
+                mock(DockerInventoryUseCase.class), mock(DockerContainerLogsUseCase.class), new ObjectMapper());
         return new HomelabToolCatalog(proxmox, docker);
     }
 }

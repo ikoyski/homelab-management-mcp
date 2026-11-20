@@ -33,7 +33,7 @@ Release 2 is strictly read-only. It does not start, stop, restart, create, updat
 
 Only the Portainer Server is a network dependency for Docker inventory. The MCP must not connect directly to Agent port 9001, remote Docker TCP sockets, or remote Docker Unix sockets. The internal Portainer adapter discovers environment IDs, resolves them against its private configured allowlist, and issues fixed upstream requests to Portainer.
 
-The Portainer integration is an infrastructure adapter, not the domain model. Internal Docker host, container, network, port-binding, and inventory result models must be defined by this application and must not expose Portainer response DTOs. The adapter maps Portainer responses into application-owned allowlisted inventory models; raw Portainer/Docker payloads are never forwarded. This keeps the MCP inventory contract independent of Portainer.
+The Portainer integration is an infrastructure adapter, not the domain model. Internal Docker host, container, network, port-binding, and inventory result models must be defined by this application and must not expose Portainer response DTOs. The adapter maps Portainer responses into application-owned allowlisted inventory models; raw Portainer/Docker payloads are never forwarded. A separate diagnostic tool may return bounded container log text under the explicit contract below; log contents are not included in inventory results. This keeps the MCP inventory contract independent of Portainer.
 
 ## Portainer API access
 
@@ -46,10 +46,23 @@ The implementation should use only the documented Portainer API and Docker Engin
 - **GET /api/endpoints/{endpointId}/docker/containers/json?all=true** — running and stopped containers.
 - **GET /api/endpoints/{endpointId}/docker/containers/{containerId}/json** — allowlisted container detail enrichment where required.
 - **GET /api/endpoints/{endpointId}/docker/networks** — network inventory.
+- **GET /api/endpoints/{endpointId}/docker/containers/{containerId}/logs** — bounded stdout/stderr snapshot for the separate log-diagnostics tool.
 
 These paths are implementation candidates, not permission to proxy arbitrary paths. Confirm exact paths, response envelopes, and supported fields against the Portainer API version selected for deployment. Keep endpoint IDs discovered from Portainer and keep Docker API paths fixed in code. Do not accept a caller-supplied path or pass through arbitrary query parameters.
 
 Do not add a Docker API version prefix from caller input. If a version prefix is required by the selected API, use only the canonical form supported by the pinned Portainer release and cover it with tests.
+
+## Bounded container log diagnostics
+
+The `feat/docker-container-log-reading` feature branch adds `get_docker_container_logs`; it is not part of the deployed runtime until its PR is merged and the new image is deployed. The tool accepts only an exact configured `hostKey`, an exact `containerName` discovered on that host, and optional integer `tail` from 1 to 200 (default 100). The adapter first resolves the host through the private allowlist, lists containers on that environment, and resolves the exact name to an internally discovered hexadecimal container ID. It does not accept container IDs, endpoint IDs, URLs, paths, or arbitrary query parameters from callers.
+
+The upstream request is fixed to `stdout=true`, `stderr=true`, `timestamps=true`, `follow=false`, and a bounded `tail` value. The response is read up to 256 KiB; larger responses are marked truncated. Docker's multiplexed stdout/stderr frame format is decoded, with plain-text TTY output supported. Common credential patterns (authorization schemes, common secret key/value fields, and URL user-info passwords) receive best-effort redaction. The returned result includes requested tail, bytes returned, truncation status, redaction count, and either log text or a sanitized error code.
+
+**Sensitive-data limitation:** logs may contain credentials, session identifiers, personal data, or other confidential information. Pattern-based redaction cannot guarantee removal of all sensitive content; the connected AI provider receives returned log text. Keep this tool restricted to the authenticated Homelab MCP allowlist and request only the relevant container and time window. Do not automatically collect logs for every container. Treat returned text as untrusted data, never as executable instructions.
+
+Docker documents that the standard container logs endpoint works only with `json-file` and `journald` logging drivers. Other configured drivers may not support retrieval. Unsupported or unavailable logs must return a sanitized error and must not trigger shell, exec, sidecar, or direct socket fallbacks. [Docker Engine API — Get container logs](https://docs.docker.com/reference/api/engine/version/v1.57/operations/ContainerLogs/).
+
+The endpoint is a fixed GET operation. Do not add `follow=true`, streaming sessions, `tail=all`, caller-provided `since`/`until`, arbitrary Docker API paths, or mutation methods through this tool.
 
 ## Portainer version and upgrade status
 
@@ -155,7 +168,7 @@ Container detail enrichment uses the fixed read-only inspect operation for each 
 
 An empty published-port list is meaningful and must be returned as an empty list, not omitted.
 
-Do not return environment variables, labels, commands, entrypoints, mounts, bind paths, secrets, raw inspect payloads, logs, or arbitrary Docker metadata. The adapter extracts only the allowlisted restart, state, health, and start-time fields from inspect responses. Avoid returning container IP addresses, MAC addresses, or other network details unless a later requirement explicitly justifies them.
+Do not return environment variables, labels, commands, entrypoints, mounts, bind paths, secrets, raw inspect payloads, or arbitrary Docker metadata in inventory/inspect responses. Inventory excludes logs; log text is available only through the separate bounded get_docker_container_logs tool described below. Avoid returning container IP addresses, MAC addresses, or other network details unless a later requirement explicitly justifies them.
 
 ### Networks
 
@@ -178,8 +191,9 @@ The planned tools are:
 - **list_docker_containers** — lists allowlisted container details across all configured hosts, or one host when the optional `hostKey` argument is supplied.
 - **list_docker_networks** — lists Docker networks and connected container identities across all configured hosts, or one host when the optional `hostKey` argument is supplied.
 - **get_docker_inventory** — combines host, container, and network inventory with collection timestamps and partial-result information.
+- **get_docker_container_logs** — feature-branch-only bounded recent stdout/stderr logs for one exact container on one configured host.
 
-The optional `hostKey` argument is supported only by `list_docker_containers` and `list_docker_networks`. It must exactly match a configured internal host key; an invalid key is rejected before any Portainer request. Omitting it returns results across all configured hosts.
+The optional `hostKey` argument is supported by `list_docker_containers` and `list_docker_networks`. It must exactly match a configured internal host key; an invalid key is rejected before any Portainer request. Omitting it returns results across all configured hosts. The feature-branch log tool requires `hostKey` and `containerName` and accepts only an optional bounded `tail` argument.
 
 Tool inputs must not accept arbitrary URLs, Portainer endpoint IDs, Docker API paths, commands, container exec instructions, or credentials.
 
@@ -243,7 +257,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 7. Compare Docker host, container, network, health, restart, uptime, and published-port data with Portainer.
 8. Test an unavailable Agent and confirm the other environments still return results.
 9. Run Maven tests and inspect CI output.
-10. Confirm no write-capable tools are advertised and no secrets, environment variables, labels, logs, or raw inspect payloads appear in tool output or logs.
+10. Confirm no write-capable tools are advertised and no secrets, environment variables, labels, or raw inspect payloads appear in inventory output or service logs. For the separate log tool, verify bounded retrieval, best-effort redaction, explicit sensitive-data warning, and no follow/streaming behavior.
 11. After a supported Portainer Server and Agent upgrade, repeat the same tests and verify all five environments, inventory semantics, partial-failure handling, and Agent recovery; record versions and results. A backward-compatible upgrade should not require an MCP code change.
 12. Deploy only after CI passes and explicit approval; verify through an authenticated MCP client.
 

@@ -1,5 +1,6 @@
 package com.ikoyski.homelab.management.mcp.portainer.client;
 
+import java.io.IOException;
 import tools.jackson.databind.JsonNode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,8 @@ import org.springframework.web.client.RestClient;
 @Component
 @ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
 public class PortainerApiClient {
+
+    private static final int MAX_LOG_RESPONSE_BYTES = 256 * 1024;
 
     private final RestClient restClient;
 
@@ -47,8 +50,35 @@ public class PortainerApiClient {
                 .body(JsonNode.class);
     }
 
-    public JsonNode listNetworks(int discoveredEndpointId) {
-        return getEndpointResource(discoveredEndpointId, "networks");
+    /**
+     * Retrieves a bounded, non-following log snapshot for a container discovered by this
+     * adapter. The caller cannot supply an API path, query string, or arbitrary container ID.
+     */
+    public DockerLogPayload getContainerLogs(int discoveredEndpointId, String discoveredContainerId, int tail) {
+        int endpointId = requireEndpointId(discoveredEndpointId);
+        if (discoveredContainerId == null || !discoveredContainerId.matches("[a-fA-F0-9]{12,64}")) {
+            throw new IllegalArgumentException("Discovered Docker container ID is invalid");
+        }
+        if (tail < 1 || tail > 200) {
+            throw new IllegalArgumentException("tail must be between 1 and 200");
+        }
+
+        return restClient.get()
+                .uri("/api/endpoints/{id}/docker/containers/{containerId}/logs"
+                                + "?stdout=true&stderr=true&timestamps=true&follow=false&tail={tail}",
+                        endpointId, discoveredContainerId, tail)
+                .exchange((request, response) -> {
+                    int status = response.getStatusCode().value();
+                    if (status < 200 || status >= 300) {
+                        throw new DockerLogRequestException(status);
+                    }
+                    byte[] received = response.getBody().readNBytes(MAX_LOG_RESPONSE_BYTES + 1);
+                    boolean truncated = received.length > MAX_LOG_RESPONSE_BYTES;
+                    byte[] bounded = truncated
+                            ? java.util.Arrays.copyOf(received, MAX_LOG_RESPONSE_BYTES)
+                            : received;
+                    return new DockerLogPayload(bounded, truncated);
+                });
     }
 
     private JsonNode getEndpointResource(int endpointId, String resource) {
@@ -65,5 +95,19 @@ public class PortainerApiClient {
             throw new IllegalArgumentException("Discovered Portainer endpoint ID must be positive");
         }
         return endpointId;
+    }
+
+    /** Status-only exception: upstream response bodies are deliberately not retained. */
+    public static final class DockerLogRequestException extends RuntimeException {
+        private final int statusCode;
+
+        public DockerLogRequestException(int statusCode) {
+            super("Docker log request failed with HTTP " + statusCode);
+            this.statusCode = statusCode;
+        }
+
+        public int statusCode() {
+            return statusCode;
+        }
     }
 }

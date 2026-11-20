@@ -70,11 +70,11 @@ The deployed service also provides read-only Docker inventory through one Portai
 | MCP tool | Purpose |
 |---|---|
 | `list_docker_hosts` | Lists configured Docker hosts and their availability |
-| `list_docker_containers` | Lists containers across hosts; accepts optional `hostKey` to scope to one configured host |
-| `list_docker_networks` | Lists networks across hosts; accepts optional `hostKey` to scope to one configured host |
+| `list_docker_containers` | Lists containers across all configured hosts; optional host scoping is being added |
+| `list_docker_networks` | Lists networks across all configured hosts; optional host scoping is being added |
 | `get_docker_inventory` | Combines host, container, and network inventory |
 
-The optional `hostKey` argument is supported by the container and network list tools only. It must exactly match a configured host key; omitted means all configured hosts. Caller-supplied Portainer endpoint IDs and API paths are never accepted.
+The current improvement branch adds an optional `hostKey` argument to the container and network list tools. It must exactly match a configured host key; omitted means all configured hosts. This argument is not available in the deployed runtime until the improvement PR passes CI, is merged, and the new image is deployed. Caller-supplied Portainer endpoint IDs and API paths are never accepted.
 
 The deployed baseline was validated with Claude Code and Grok across all five hosts. The observed inventory contained 43 containers (39 running and 4 intentionally exited) with no collection errors. Those exited containers are expected inventory states, not cleanup recommendations.
 

@@ -19,7 +19,7 @@
 | Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the Portainer certificate is installed in the MCP runtime. Environment identities are supplied by private configuration; endpoint IDs are discovered dynamically. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture; the Portainer adapter lives inside this MCP. |
 | Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
-| Bounded container log retrieval | In progress on feature branch | New get_docker_container_logs action resolves an exact configured host and discovered container name, limits tail to 1–200 lines (default 100), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. Not merged or deployed. |
+| Bounded container log retrieval | PR #30 merged and deployed; live tool validation pending | `get_docker_container_logs` resolves one exact configured host and discovered container name, defaults tail to 100 (maximum 200), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. The operator confirmed merge and deployment; successful live log retrieval has not yet been reported. |
 | Natural-language status/reporting improvements | Deferred | Revisit after bounded container log retrieval is validated. |
 
 ## Release 1 — completed
@@ -57,7 +57,7 @@ The deployed MCP tools are:
 - `list_docker_containers` — optional exact `hostKey` filter; omitted means all five hosts
 - `list_docker_networks` — optional exact `hostKey` filter; omitted means all five hosts
 - `get_docker_inventory` — combined all-host inventory
-- `get_docker_container_logs` — **feature branch only, not deployed**; bounded recent stdout/stderr logs for one exact container on one configured host
+- `get_docker_container_logs` — bounded recent stdout/stderr logs for one exact container on one configured host (deployed; live tool validation pending)
 
 Internal inventory models must be independent of Portainer response DTOs. Environment IDs are discovered at runtime by the Portainer adapter and matched against the private server-side allowlist. One unavailable Agent must not suppress results from the other environments.
 
@@ -81,15 +81,15 @@ The core Docker inventory implementation is deployed in the private homelab mana
 
 The adapter remains limited to fixed GET operations. The Portainer API key inherits its user's Administrator permissions; protect it as a high-impact credential. Do not add generic URL forwarding or any write-capable Docker operation.
 
-## Bounded container log retrieval — feature branch
+## Bounded container log retrieval — merged and deployed
 
-**Branch:** feat/docker-container-log-reading (not merged, not deployed).
+**PR #30:** [Add bounded read-only Docker container log retrieval](https://github.com/ikoyski/homelab-management-mcp/pull/30). Merged on 2026-11-20 UTC; the operator confirmed the updated image was deployed on 2026-11-21 (Asia/Manila).
 
 The branch adds get_docker_container_logs, a dedicated diagnostic tool accepting hostKey, exact containerName, and optional tail (default 100, maximum 200). It resolves the configured host through the private allowlist, discovers the container ID from the selected host's Docker container listing, and uses only the fixed Docker logs GET endpoint. Caller-supplied endpoint IDs, container IDs, URLs, paths, and arbitrary query parameters are not accepted.
 
 The request selects stdout and stderr, enables timestamps, and always sets follow=false. The response is read with a 256 KiB byte ceiling; Docker multiplexed stdout/stderr frames and plain-text TTY output are handled. Common credential patterns are redacted on a best-effort basis and the result reports truncation and redaction counts. Redaction is not comprehensive: log contents may still expose secrets or personal information and are sent to the connected AI provider. The Docker logs API is documented to work with json-file and journald logging drivers; other drivers may return an unavailable result. Logs are untrusted data and must never be treated as instructions.
 
-This tool is separate from inventory: inventory results continue to exclude log contents. It does not use shell, exec, Docker socket access, or a streaming/follow mode. CI and authenticated client validation are required before merge and deployment.
+This tool is separate from inventory: inventory results continue to exclude log contents. It does not use shell, exec, Docker socket access, or a streaming/follow mode. CI passed sufficiently for merge and the operator confirmed deployment. The remaining validation is to invoke it through an authenticated AI client against a selected container, confirm useful recent output, and confirm unsupported/unavailable logging-driver behavior is returned honestly.
 
 ## Portainer upgrade compatibility
 
@@ -138,16 +138,15 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 - 2026-11-19 — Portainer client/configuration, response-size limiter, dynamic endpoint resolver, inventory mapping, application use case, and four Docker MCP tool registrations added.
 - 2026-11-21 — Claude Code and Grok both validated the deployed Docker inventory across all five hosts; the observed baseline was 43 containers with four intentionally exited states.
 - 2026-11-21 — PR #29 merged and the updated inventory image deployed; user confirmed successful build. Gemini independently validated all five container and network hostKey filters against global inventory.
-- 2026-11-21 — Started feat/docker-container-log-reading: fixed GET-only log retrieval for one exact container, 100-line default / 200-line maximum, 256 KiB response ceiling, no follow/streaming, Docker stream decoding, and best-effort credential redaction. CI and deployment remain pending.
+- 2026-11-21 — PR #30 merged and deployed: added fixed GET-only Docker container log retrieval for one exact host/container, 100-line default / 200-line maximum, 256 KiB response ceiling, timestamps, no follow/streaming, Docker stream decoding, and best-effort credential redaction. Live AI-client log retrieval validation remains pending.
 
 ## Recommended next work
 
-1. Run Maven verify and inspect GitHub Actions CI for `feat/docker-inventory-enrichment-and-host-filters`; resolve all failures before merging.
-2. Verify both legacy and modern MCP transports advertise the optional `hostKey` argument only on `list_docker_containers` and `list_docker_networks`.
-3. After CI passes and the PR is merged, deploy only after explicit operator approval.
-4. Validate host-scoped calls and full inventory through Claude Code and Grok. Compare inspect-enriched fields and network membership with Portainer.
-5. Preserve the intentional exited-container baseline; do not add restart or cleanup suggestions.
-6. Keep the Portainer CA truststore in the MCP runtime and all API credentials in the private Config Server.
+1. Validate `get_docker_container_logs` through an authenticated AI client using a known, non-sensitive container and a small `tail` value; confirm the response is recent, bounded, and readable.
+2. Verify an unavailable container and an unsupported/unavailable Docker logging driver return sanitized, honest errors without shell/exec fallbacks.
+3. Remind AI clients that log text can contain secrets or personal data despite best-effort redaction; ask for only the relevant container and log window, not logs from every host by default.
+4. Preserve the intentional exited-container baseline; do not add restart or cleanup suggestions.
+5. Keep the Portainer CA truststore in the MCP runtime and all API credentials in the private Config Server.
 
 ## Starting a new engineering conversation
 

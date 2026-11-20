@@ -24,7 +24,7 @@ Deploy one Portainer Server on a stable private management host. Follow the curr
 
 Use persistent storage for Portainer data. Protect the UI/API with strong administrator credentials and keep it on the private management network. Do not publish its API to the public Internet.
 
-Portainer Server needs its documented local Docker connection. The Docker socket may be used by Portainer Server in its supported local deployment; **it must not be mounted into Homelab Management MCP**.
+Portainer Server needs its documented local Docker connection. The Docker socket may be used by Portainer Server in its supported local deployment; **it must not be mounted into Homelab Management MCP**. Portainer's installation may generate a self-signed HTTPS certificate by default. For a managed homelab, consider installing a server certificate issued by your private CA so the MCP can validate a stable CA chain and the URL's SAN.
 
 ## 3. Connect remote hosts using Agents
 
@@ -62,11 +62,14 @@ Adding an environment in Portainer does not automatically authorize MCP discover
 
 ## 5. Create a Portainer API key
 
-1. Sign in to Portainer over HTTPS.
-2. Open the account menu and account/access-token settings (labels vary by release).
-3. Create an API access token with a descriptive name.
-4. Copy it immediately to a password manager/private secret store.
-5. Do not put it in source code, committed Compose files, logs, or AI prompts.
+1. Sign in to Portainer over HTTPS as the intended API user.
+2. Select the username in the top-right corner and open **My account**.
+3. Scroll to **Access tokens** and choose **Add access token**.
+4. Enter a recognizable description. Portainer may require you to re-enter the account password.
+5. Create the token and copy it immediately to a password manager/private secret store. It cannot be viewed again after leaving the creation screen.
+6. Do not put it in source code, committed Compose files, logs, or AI prompts.
+
+See the official [Accessing the Portainer API](https://docs.portainer.io/api/access) guide for screenshots and current UI details. Portainer API access is per-user; the token has the same Portainer permissions as that user.
 
 A Portainer API key inherits its user's permissions. It is not intrinsically read-only. The MCP adapter exposes fixed, code-defined GET operations only, but this does not reduce the upstream privileges of the credential.
 

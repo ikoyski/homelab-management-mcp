@@ -54,7 +54,8 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
     private final ObjectMapper mapper;
     private final Map<String, String> toolDescriptions;
 
-    public DockerInventoryToolRepository(DockerInventoryUseCase inventory, DockerContainerLogsUseCase containerLogs, ObjectMapper mapper) {
+    public DockerInventoryToolRepository(
+            DockerInventoryUseCase inventory, DockerContainerLogsUseCase containerLogs, ObjectMapper mapper) {
         this.inventory = inventory;
         this.containerLogs = containerLogs;
         this.mapper = mapper;

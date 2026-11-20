@@ -31,7 +31,7 @@ Use these logical modules:
 
 The Proxmox and Portainer modules must not depend on one another. Their credentials, HTTP clients, DTOs, error types, and configuration properties remain separate. The MCP inbound layer calls application use cases and must not make upstream HTTP requests itself.
 
-The Portainer adapter may issue only fixed, code-defined GET operations required for inventory. It must not expose generic URL/path forwarding, arbitrary query parameters, caller-supplied Portainer endpoint IDs, or write-capable methods. Resolve endpoint IDs dynamically from Portainer and match exact configured environment identities against the private allowlist. Exclude shared-pve.
+The Portainer adapter may issue only fixed, code-defined GET operations required for inventory. It must not expose generic URL/path forwarding, arbitrary query parameters, caller-supplied Portainer endpoint IDs, or write-capable methods. Resolve endpoint IDs dynamically from Portainer and match exact configured environment identities against the private allowlist. Do not hardcode deployment-specific names or mappings in this public repository; unlisted environments are excluded.
 
 The Portainer API key is held only in private runtime configuration. Keep TLS certificate-chain and hostname/IP verification enabled, use the runtime JVM truststore for the self-signed certificate, and bound connection/read timeouts and response sizes. Map only explicitly allowlisted fields into application-owned inventory models. Isolate failures per environment.
 

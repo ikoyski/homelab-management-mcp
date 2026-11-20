@@ -5,10 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryUseCase;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
 import com.ikoyski.homelab.management.mcp.proxmox.ProxmoxInventoryService;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 import tools.jackson.databind.ObjectMapper;
@@ -46,6 +51,40 @@ class CombinedToolRepositoryTest {
             assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
             assertNotNull(catalog.toolDescription(name));
         }
+    }
+
+    @Test
+    void dockerListToolsDeclareOptionalHostKeyAndRejectAdditionalArgumentsInTheirSchemas() {
+        CombinedToolRepository modernAdapter = new CombinedToolRepository(configuredCatalog());
+
+        Map<String, Object> containerSchema = modernAdapter.find(null, "list_docker_containers").inputSchema();
+        Map<String, Object> networkSchema = modernAdapter.find(null, "list_docker_networks").inputSchema();
+        Map<String, Object> containerProperties = (Map<String, Object>) containerSchema.get("properties");
+        Map<String, Object> hostKeySchema = (Map<String, Object>) containerProperties.get("hostKey");
+
+        assertEquals("object", containerSchema.get("type"));
+        assertEquals(false, containerSchema.get("additionalProperties"));
+        assertEquals("string", hostKeySchema.get("type"));
+        assertTrue(((String) hostKeySchema.get("description")).contains("configured Docker host key"));
+        assertEquals(containerSchema.get("properties"), networkSchema.get("properties"));
+
+        Map<String, Object> inventorySchema = modernAdapter.find(null, "get_docker_inventory").inputSchema();
+        assertEquals(Map.of(), inventorySchema.get("properties"));
+    }
+
+    @Test
+    void toolCatalogPassesHostFilterArgumentsToTheDockerProvider() {
+        DockerInventoryUseCase useCase = mock(DockerInventoryUseCase.class);
+        DockerInventory empty = new DockerInventory("ok", Instant.now(),
+                List.of(), List.of(), List.of(), List.of());
+        when(useCase.collect("dev-pve")).thenReturn(empty);
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(useCase, new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
+
+        String response = catalog.execute("list_docker_containers", Map.of("hostKey", "dev-pve"));
+
+        assertTrue(response.contains("\"status\":\"ok\""));
+        verify(useCase).collect("dev-pve");
     }
 
     @Test

@@ -11,10 +11,21 @@ import com.ikoyski.homelab.management.mcp.portainer.discovery.PortainerEndpointR
 import com.ikoyski.homelab.management.mcp.portainer.discovery.PortainerEndpointResolver.EndpointResolution;
 import com.ikoyski.homelab.management.mcp.portainer.discovery.PortainerEndpointResolver.Status;
 import com.ikoyski.homelab.management.mcp.portainer.client.PortainerApiClient;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -34,6 +45,8 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
     private static final Logger log = LoggerFactory.getLogger(PortainerDockerInventoryAdapter.class);
     private static final Pattern HEALTH_PATTERN = Pattern.compile("\\b(healthy|unhealthy|starting)\\b",
             Pattern.CASE_INSENSITIVE);
+    private static final Set<String> HEALTH_STATES = Set.of("healthy", "unhealthy", "starting");
+    private static final int MAX_CONCURRENT_CONTAINER_INSPECTIONS = 4;
 
     private final PortainerApiClient client;
     private final PortainerEndpointResolver resolver;
@@ -48,6 +61,12 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
 
     @Override
     public DockerInventory collect() {
+        return collect(null);
+    }
+
+    @Override
+    public DockerInventory collect(String hostKey) {
+        List<String> requestedHosts = requestedHosts(hostKey);
         Instant collectedAt = Instant.now();
         List<DockerHost> hosts = new ArrayList<>();
         List<DockerContainer> containers = new ArrayList<>();
@@ -60,84 +79,211 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
         } catch (Exception ex) {
             String code = errorCode(ex);
             log.warn("Portainer endpoint discovery failed errorCode={}", code);
-            for (String hostKey : properties.environments().allowlist()) {
-                hosts.add(new DockerHost(hostKey, "unavailable", null, null, collectedAt, code));
-                errors.add(hostKey + ": " + code);
+            for (String requestedHost : requestedHosts) {
+                hosts.add(new DockerHost(requestedHost, "unavailable", null, null, collectedAt, code));
+                errors.add(requestedHost + ": " + code);
             }
             return inventory(collectedAt, hosts, containers, networks, errors);
         }
 
-        for (String hostKey : properties.environments().allowlist()) {
-            EndpointResolution resolution = resolutions.get(hostKey);
-            if (resolution == null || !resolution.isResolved()) {
-                String code = resolutionErrorCode(resolution);
-                hosts.add(new DockerHost(hostKey, "unavailable", null, null, collectedAt, code));
-                errors.add(hostKey + ": " + code);
-                continue;
-            }
-
-            int endpointId = resolution.endpointId();
-            String hostStatus = "ok";
-            String hostError = null;
-            String engineVersion = null;
-            String operatingSystem = null;
-
-            try {
-                JsonNode info = client.getDockerInfo(endpointId);
-                engineVersion = text(info, "ServerVersion");
-                operatingSystem = text(info, "OperatingSystem");
-                if (info == null || !info.isObject()) {
-                    throw new IllegalStateException("unexpected_response");
+        try (ExecutorService inspectionExecutor =
+                Executors.newFixedThreadPool(MAX_CONCURRENT_CONTAINER_INSPECTIONS)) {
+            for (String requestedHost : requestedHosts) {
+                EndpointResolution resolution = resolutions.get(requestedHost);
+                if (resolution == null || !resolution.isResolved()) {
+                    String code = resolutionErrorCode(resolution);
+                    hosts.add(new DockerHost(requestedHost, "unavailable", null, null, collectedAt, code));
+                    errors.add(requestedHost + ": " + code);
+                    continue;
                 }
-            } catch (Exception ex) {
-                hostStatus = "partial";
-                hostError = errorCode(ex);
-                errors.add(hostKey + ": " + hostError);
-                log.warn("Portainer Docker info failed host={} errorCode={}", hostKey, hostError);
-            }
 
-            try {
-                JsonNode containerResponse = client.listContainers(endpointId);
-                if (containerResponse == null || !containerResponse.isArray()) {
-                    throw new IllegalStateException("unexpected_response");
-                }
-                for (JsonNode item : containerResponse) {
-                    DockerContainer container = mapContainer(hostKey, item);
-                    if (container != null) {
-                        containers.add(container);
+                int endpointId = resolution.endpointId();
+                String hostStatus = "ok";
+                String hostError = null;
+                String engineVersion = null;
+                String operatingSystem = null;
+
+                try {
+                    JsonNode info = client.getDockerInfo(endpointId);
+                    if (info == null || !info.isObject()) {
+                        throw new IllegalStateException("unexpected_response");
                     }
+                    engineVersion = text(info, "ServerVersion");
+                    operatingSystem = text(info, "OperatingSystem");
+                } catch (Exception ex) {
+                    hostStatus = "partial";
+                    hostError = errorCode(ex);
+                    errors.add(requestedHost + ": " + hostError);
+                    log.warn("Portainer Docker info failed host={} errorCode={}", requestedHost, hostError);
                 }
-            } catch (Exception ex) {
-                hostStatus = "partial";
-                String code = errorCode(ex);
-                hostError = hostError == null ? code : hostError;
-                errors.add(hostKey + ": containers: " + code);
-                log.warn("Portainer container inventory failed host={} errorCode={}", hostKey, code);
-            }
 
-            try {
-                JsonNode networkResponse = client.listNetworks(endpointId);
-                if (networkResponse == null || !networkResponse.isArray()) {
-                    throw new IllegalStateException("unexpected_response");
-                }
-                for (JsonNode item : networkResponse) {
-                    DockerNetwork network = mapNetwork(hostKey, item);
-                    if (network != null) {
-                        networks.add(network);
+                boolean containerDetailsUnavailable = false;
+                try {
+                    JsonNode containerResponse = client.listContainers(endpointId);
+                    if (containerResponse == null || !containerResponse.isArray()) {
+                        throw new IllegalStateException("unexpected_response");
                     }
-                }
-            } catch (Exception ex) {
-                hostStatus = "partial";
-                String code = errorCode(ex);
-                hostError = hostError == null ? code : hostError;
-                errors.add(hostKey + ": networks: " + code);
-                log.warn("Portainer network inventory failed host={} errorCode={}", hostKey, code);
-            }
+                    List<PendingContainerInspection> pending = new ArrayList<>();
+                    for (JsonNode item : containerResponse) {
+                        DockerContainer summary = mapContainer(requestedHost, item);
+                        if (summary != null) {
+                            Future<ContainerEnrichment> future = inspectionExecutor.submit(
+                                    () -> inspectContainer(requestedHost, endpointId, summary, collectedAt));
+                            pending.add(new PendingContainerInspection(summary, future));
+                        }
+                    }
 
-            hosts.add(new DockerHost(hostKey, hostStatus, engineVersion, operatingSystem, collectedAt, hostError));
+                    boolean interrupted = false;
+                    for (PendingContainerInspection item : pending) {
+                        if (interrupted) {
+                            item.future().cancel(true);
+                            containers.add(item.summary());
+                            containerDetailsUnavailable = true;
+                            continue;
+                        }
+                        try {
+                            ContainerEnrichment enrichment = item.future().get();
+                            containers.add(enrichment.container());
+                            containerDetailsUnavailable |= !enrichment.enriched();
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            interrupted = true;
+                            item.future().cancel(true);
+                            containers.add(item.summary());
+                            containerDetailsUnavailable = true;
+                        } catch (ExecutionException | CancellationException ex) {
+                            containers.add(item.summary());
+                            containerDetailsUnavailable = true;
+                        }
+                    }
+                } catch (Exception ex) {
+                    hostStatus = "partial";
+                    String code = errorCode(ex);
+                    hostError = hostError == null ? code : hostError;
+                    errors.add(requestedHost + ": containers: " + code);
+                    log.warn("Portainer container inventory failed host={} errorCode={}", requestedHost, code);
+                }
+                if (containerDetailsUnavailable) {
+                    hostStatus = "partial";
+                    hostError = hostError == null ? "container_details_unavailable" : hostError;
+                    errors.add(requestedHost + ": container_details_unavailable");
+                    log.warn("Portainer container detail enrichment incomplete host={}", requestedHost);
+                }
+
+                try {
+                    JsonNode networkResponse = client.listNetworks(endpointId);
+                    if (networkResponse == null || !networkResponse.isArray()) {
+                        throw new IllegalStateException("unexpected_response");
+                    }
+                    for (JsonNode item : networkResponse) {
+                        DockerNetwork network = mapNetwork(requestedHost, item);
+                        if (network != null) {
+                            networks.add(network);
+                        }
+                    }
+                } catch (Exception ex) {
+                    hostStatus = "partial";
+                    String code = errorCode(ex);
+                    hostError = hostError == null ? code : hostError;
+                    errors.add(requestedHost + ": networks: " + code);
+                    log.warn("Portainer network inventory failed host={} errorCode={}", requestedHost, code);
+                }
+
+                hosts.add(new DockerHost(requestedHost, hostStatus, engineVersion, operatingSystem,
+                        collectedAt, hostError));
+            }
         }
 
-        return inventory(collectedAt, hosts, containers, networks, errors);
+        return inventory(collectedAt, hosts, containers, addContainerMembership(networks, containers), errors);
+    }
+
+    private List<String> requestedHosts(String hostKey) {
+        List<String> configuredHosts = properties.environments().allowlist();
+        if (hostKey == null) {
+            return configuredHosts;
+        }
+        if (hostKey.isBlank() || !configuredHosts.contains(hostKey)) {
+            throw new IllegalArgumentException("hostKey must exactly match a configured Docker host");
+        }
+        return List.of(hostKey);
+    }
+
+    private ContainerEnrichment inspectContainer(String hostKey, int endpointId,
+            DockerContainer summary, Instant collectedAt) {
+        try {
+            JsonNode inspect = client.inspectContainer(endpointId, summary.id());
+            if (inspect == null || !inspect.isObject()) {
+                throw new IllegalStateException("unexpected_response");
+            }
+            return new ContainerEnrichment(enrichContainer(summary, inspect, collectedAt), true);
+        } catch (Exception ex) {
+            log.warn("Portainer container detail request failed host={} errorCode={}", hostKey, errorCode(ex));
+            return new ContainerEnrichment(summary, false);
+        }
+    }
+
+    private static DockerContainer enrichContainer(DockerContainer summary, JsonNode inspect, Instant collectedAt) {
+        JsonNode state = inspect.get("State");
+        Integer restartCount = integer(inspect, "RestartCount");
+        Instant startedAt = parseDockerTimestamp(text(state, "StartedAt"));
+
+        Boolean running = bool(state, "Running");
+        if (running == null) {
+            String inspectState = text(state, "Status");
+            running = "running".equalsIgnoreCase(inspectState)
+                    || "running".equalsIgnoreCase(summary.state());
+        }
+        Long uptimeSeconds = null;
+        if (Boolean.TRUE.equals(running) && startedAt != null && !startedAt.isAfter(collectedAt)) {
+            long elapsed = Duration.between(startedAt, collectedAt).getSeconds();
+            if (elapsed >= 0) {
+                uptimeSeconds = elapsed;
+            }
+        }
+
+        String health = inspectHealth(state, summary.health());
+        return new DockerContainer(summary.hostKey(), summary.id(), summary.name(), summary.image(),
+                summary.state(), summary.status(), health, restartCount, summary.createdAt(), startedAt,
+                uptimeSeconds, summary.networks(), summary.publishedPorts());
+    }
+
+    private static String inspectHealth(JsonNode state, String summaryHealth) {
+        if (state == null || !state.isObject()) {
+            return summaryHealth;
+        }
+        JsonNode health = state.get("Health");
+        if (health == null || health.isNull()) {
+            return "not_configured";
+        }
+        String value = text(health, "Status");
+        if (value == null) {
+            return "unknown";
+        }
+        String normalized = value.toLowerCase();
+        return HEALTH_STATES.contains(normalized) ? normalized : "unknown";
+    }
+
+    private static List<DockerNetwork> addContainerMembership(
+            List<DockerNetwork> networks, List<DockerContainer> containers) {
+        Map<HostNetworkKey, Set<String>> derivedMembership = new HashMap<>();
+        for (DockerContainer container : containers) {
+            String memberName = container.name() == null || container.name().isBlank()
+                    ? container.id() : container.name();
+            for (String networkName : container.networks()) {
+                derivedMembership.computeIfAbsent(new HostNetworkKey(container.hostKey(), networkName),
+                        ignored -> new TreeSet<>()).add(memberName);
+            }
+        }
+
+        List<DockerNetwork> enriched = new ArrayList<>(networks.size());
+        for (DockerNetwork network : networks) {
+            Set<String> members = new TreeSet<>(network.connectedContainers());
+            members.addAll(derivedMembership.getOrDefault(
+                    new HostNetworkKey(network.hostKey(), network.name()), Set.of()));
+            enriched.add(new DockerNetwork(network.hostKey(), network.id(), network.name(), network.driver(),
+                    network.scope(), network.internal(), network.attachable(), List.copyOf(members)));
+        }
+        return List.copyOf(enriched);
     }
 
     private static DockerInventory inventory(Instant collectedAt, List<DockerHost> hosts,
@@ -192,21 +338,16 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
         if (id == null || name == null) {
             return null;
         }
-        List<String> connected = new ArrayList<>();
+        Set<String> connected = new LinkedHashSet<>();
         JsonNode members = source.path("Containers");
         if (members.isObject()) {
             members.propertyNames().forEach(memberId -> {
                 String memberName = text(members.get(memberId), "Name");
-                if (memberName != null && !memberName.isBlank()) {
-                    connected.add(memberName);
-                } else {
-                    connected.add(memberId);
-                }
+                connected.add(memberName != null && !memberName.isBlank() ? memberName : memberId);
             });
-            connected.sort(String::compareTo);
         }
         return new DockerNetwork(hostKey, id, name, text(source, "Driver"), text(source, "Scope"),
-                bool(source, "Internal"), bool(source, "Attachable"), connected);
+                bool(source, "Internal"), bool(source, "Attachable"), connected.stream().sorted().toList());
     }
 
     private static List<PublishedPort> publishedPorts(JsonNode ports) {
@@ -260,6 +401,17 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
         }
     }
 
+    private static Instant parseDockerTimestamp(String value) {
+        if (value == null || value.isBlank() || value.startsWith("0001-01-01T00:00:00")) {
+            return null;
+        }
+        try {
+            return Instant.parse(value);
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
     private static String text(JsonNode source, String field) {
         if (source == null) {
             return null;
@@ -302,5 +454,15 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
             return "docker_inventory_request_failed";
         }
         return "portainer_unavailable";
+    }
+
+    private record HostNetworkKey(String hostKey, String networkName) {
+    }
+
+    private record PendingContainerInspection(
+            DockerContainer summary, Future<ContainerEnrichment> future) {
+    }
+
+    private record ContainerEnrichment(DockerContainer container, boolean enriched) {
     }
 }

@@ -8,17 +8,7 @@ Release 2 adds read-only Docker discovery to the existing Homelab Management MCP
 
 The MCP connects directly to **one Portainer Server** through its dedicated, internal Portainer infrastructure adapter. Portainer Server is the control-plane entry point for its local Docker Engine and the remote Docker Engines reached through Portainer Agents. The MCP does not connect directly to remote Docker Engines or Agents. The adapter is the only component in the application that calls the Portainer API.
 
-The initial configured Docker environment allowlist is:
-
-| Portainer environment | Proxmox guest | Connection |
-|---|---:|---|
-| **util-pve (local)** | VM 101 | Portainer Server local Docker endpoint |
-| **dev-pve** | VM 107 | Portainer Agent |
-| **earn-pve** | VM 105 | Portainer Agent |
-| **media-pve** | VM 106 | Portainer Agent |
-| **ncloud-pve** | VM 108 | Portainer Agent |
-
-**shared-pve (VM 104)** is intentionally excluded because it is a TurnKey File Server and has no Docker Agent. It remains visible through Release 1 Proxmox inventory.
+The Docker environment allowlist and any environment-to-guest mappings are supplied only by the private Config Server. The public repository does not enumerate live host names, Proxmox guest identifiers, environment counts, or mappings. Only exact identities present in the private allowlist are discovered; any unlisted environment is excluded.
 
 Portainer environment IDs are discovered at runtime. Do not hard-code Portainer endpoint IDs or accept endpoint IDs, URLs, host names, Docker API paths, or commands from MCP callers. Match discovered environments against the server-side allowlist and associate them with Proxmox guests using private configuration.
 
@@ -35,11 +25,11 @@ Release 2 is strictly read-only. It does not start, stop, restart, create, updat
         | dedicated Portainer adapter (fixed GET operations, verified TLS)
         v
     Portainer Server
-        |-- local Docker Engine (util-pve)
-        |-- Portainer Agent --> Docker Engine (dev-pve)
-        |-- Portainer Agent --> Docker Engine (earn-pve)
-        |-- Portainer Agent --> Docker Engine (media-pve)
-        '-- Portainer Agent --> Docker Engine (ncloud-pve)
+        |-- local Docker Engine (private management environment)
+        |-- Portainer Agent --> Docker Engine (remote environment A)
+        |-- Portainer Agent --> Docker Engine (remote environment B)
+        |-- Portainer Agent --> Docker Engine (remote environment C)
+        '-- Portainer Agent --> Docker Engine (additional configured environments)
 
 Only the Portainer Server is a network dependency for Docker inventory. The MCP must not connect directly to Agent port 9001, remote Docker TCP sockets, or remote Docker Unix sockets. The internal Portainer adapter discovers environment IDs, resolves them against its private configured allowlist, and issues fixed upstream requests to Portainer.
 
@@ -63,9 +53,9 @@ Do not add a Docker API version prefix from caller input. If a version prefix is
 
 ## Portainer version and upgrade status
 
-**Completed 2026-11-19:** The homelab Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve`) were upgraded to Portainer Community Edition **2.45.4**. The Server was upgraded first, followed by the Agents. All five configured environments were subsequently confirmed Up and reporting resources.
+**Completed 2026-11-19:** The Portainer Server and its configured remote Portainer Agents were upgraded to a compatible Portainer Community Edition release. The Server was upgraded first, followed by the Agents. All configured environments were subsequently confirmed Up and reporting resources. Exact versions and environment identities remain in the private deployment record.
 
-Docker Engine versions observed during this validation were **28.4.0** for the local `util-pve` environment and **29.1.3** for each of the four remote Agent-managed environments. These are the observed engine versions at the time of the upgrade validation; they are not Portainer version numbers.
+Docker Engine information was returned for both the local and remote Agent-managed environments. Per-environment versions are kept in the private deployment validation record.
 
 The upgrade prerequisite is therefore complete for the current deployment. Before future upgrades, review current Portainer security advisories, supported release guidance, and Server/Agent compatibility; repeat the regression procedure below and record the new versions/results. The completed upgrade does not by itself establish a read-only authorization boundary or complete TLS trust provisioning.
 
@@ -154,16 +144,18 @@ Return only explicitly allowlisted fields:
 - Container name.
 - Image reference.
 - State and status.
-- Health status when a health check is configured; distinguish not-configured from healthy.
-- Restart count.
+- Health status from structured Docker inspect data: `healthy`, `unhealthy`, or `starting`; use `not_configured` when the inspect response has no health check, and leave it null when detail enrichment is unavailable.
+- Restart count from the container inspect summary.
 - Created timestamp and StartedAt timestamp.
-- Calculated uptime when StartedAt is valid and the container is running.
-- Attached Docker network names.
+- Calculated uptime from StartedAt and the collection timestamp only when Docker reports the container is running and StartedAt is valid.
+- Attached Docker network names from the container-list response.
 - Published port bindings (container port, host port, and protocol).
+
+Container detail enrichment uses the fixed read-only inspect operation for each discovered container. At most four inspect requests run concurrently per collection. If an inspect request fails, retain the base container summary, leave unavailable detail fields null, and mark that host's result as partial with a sanitized `container_details_unavailable` error.
 
 An empty published-port list is meaningful and must be returned as an empty list, not omitted.
 
-Do not return environment variables, labels, commands, entrypoints, mounts, bind paths, secrets, raw inspect payloads, logs, or arbitrary Docker metadata. Avoid returning container IP addresses, MAC addresses, or other network details unless a later requirement explicitly justifies them.
+Do not return environment variables, labels, commands, entrypoints, mounts, bind paths, secrets, raw inspect payloads, logs, or arbitrary Docker metadata. The adapter extracts only the allowlisted restart, state, health, and start-time fields from inspect responses. Avoid returning container IP addresses, MAC addresses, or other network details unless a later requirement explicitly justifies them.
 
 ### Networks
 
@@ -174,6 +166,8 @@ Return only allowlisted network fields:
 - Internal and attachable flags when available.
 - Names/IDs of connected containers, without exposing raw endpoint configuration.
 
+When Portainer's network response omits connected-container details, derive membership by matching each network name to the same host's container-side network attachments. Keep this fallback scoped by host; do not infer membership across Docker Engines.
+
 Do not return network IPAM configuration, subnets, gateways, container IP addresses, options, labels, or raw API payloads in the initial release.
 
 ## MCP tools
@@ -181,11 +175,13 @@ Do not return network IPAM configuration, subnets, gateways, container IP addres
 The planned tools are:
 
 - **list_docker_hosts** — reports the configured Docker environments and their availability.
-- **list_docker_containers** — lists allowlisted container details, optionally scoped to a configured host key.
-- **list_docker_networks** — lists Docker networks and connected container identities.
+- **list_docker_containers** — lists allowlisted container details across all configured hosts, or one host when the optional `hostKey` argument is supplied.
+- **list_docker_networks** — lists Docker networks and connected container identities across all configured hosts, or one host when the optional `hostKey` argument is supplied.
 - **get_docker_inventory** — combines host, container, and network inventory with collection timestamps and partial-result information.
 
-Tool inputs must not accept arbitrary URLs, Portainer endpoint IDs, Docker API paths, commands, container exec instructions, or credentials. Any optional host selector must refer only to a configured internal host key.
+The optional `hostKey` argument is supported only by `list_docker_containers` and `list_docker_networks`. It must exactly match a configured internal host key; an invalid key is rejected before any Portainer request. Omitting it returns results across all configured hosts.
+
+Tool inputs must not accept arbitrary URLs, Portainer endpoint IDs, Docker API paths, commands, container exec instructions, or credentials.
 
 No write-capable Docker tools are included in Release 2.
 
@@ -199,6 +195,8 @@ Store these only in the private Config Server or protected runtime environment:
 - **homelab.docker.portainer.read-timeout-ms**.
 - **homelab.docker.portainer.tls** — truststore configuration supplied through protected runtime settings.
 - **homelab.docker.environments** — explicit allowlist mapping configured environment names to internal host keys and Proxmox guest identifiers.
+
+The Portainer API key inherits the permissions of its Portainer user. The adapter exposes only fixed GET operations, but an administrator-owned API key retains administrator-level upstream privileges if compromised; treat it as a high-impact credential and keep it only in the private Config Server/runtime environment.
 
 Do not commit real URLs, private IP addresses, API keys, truststores, passwords, or certificate material to this repository. Do not place environment-specific Portainer endpoint IDs in configuration; discover them from Portainer and match by the configured environment identity.
 
@@ -240,7 +238,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 2. Confirm the Portainer Server API is reachable from the MCP internal network only.
 3. Confirm TLS certificate-chain and hostname/IP verification succeed from the MCP runtime.
 4. Verify the chosen read-only boundary rejects write methods and unapproved API paths.
-5. Verify exactly the five configured environments are discovered; confirm **shared-pve** is excluded.
+5. Verify only the environments supplied by the private allowlist are discovered; confirm unlisted environments are excluded.
 6. Verify environment IDs are discovered dynamically and map to the expected Proxmox guests.
 7. Compare Docker host, container, network, health, restart, uptime, and published-port data with Portainer.
 8. Test an unavailable Agent and confirm the other environments still return results.
@@ -255,5 +253,5 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 - Docker image pulls, builds, pruning, volume changes, stack deployments, and network changes.
 - Docker logs, environment variables, secrets, labels, mounts, and arbitrary inspect output.
 - Direct SSH access, direct Docker socket access, or direct remote Docker TCP access from the MCP.
-- Docker discovery on **shared-pve**.
+- Docker discovery on environments excluded from the private allowlist.
 - Natural-language status thresholds, historical change detection, and short/detailed homelab reporting. These remain a follow-up after Docker support is complete.

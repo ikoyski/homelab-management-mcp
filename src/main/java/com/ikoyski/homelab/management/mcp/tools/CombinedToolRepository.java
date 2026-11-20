@@ -1,8 +1,5 @@
 package com.ikoyski.homelab.management.mcp.tools;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import io.modelcontextprotocol.modern.McpSchema.CallToolOutcome;
 import io.modelcontextprotocol.modern.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.modern.McpSchema.CallToolResult;
@@ -34,11 +31,7 @@ public class CombinedToolRepository implements McpSyncToolRepository {
         if (!catalog.contains(name)) {
             return null;
         }
-        Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("type", "object");
-        schema.put("properties", Map.of());
-        schema.put("additionalProperties", false);
-        return Tool.builder(name, schema)
+        return Tool.builder(name, catalog.toolInputSchema(name))
                 .description(catalog.toolDescription(name))
                 .build();
     }
@@ -48,7 +41,7 @@ public class CombinedToolRepository implements McpSyncToolRepository {
         if (!catalog.contains(request.name())) {
             throw new IllegalArgumentException("Unknown MCP tool: " + request.name());
         }
-        String result = catalog.execute(request.name());
+        String result = catalog.execute(request.name(), request.arguments());
         return McpSyncResponse.result(CallToolResult.builder()
                 .addContent(TextContent.builder(result).build())
                 .isError(result.startsWith("Error:"))

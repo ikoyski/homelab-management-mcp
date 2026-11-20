@@ -2,13 +2,12 @@ package com.ikoyski.homelab.management.mcp.portainer.config;
 
 import java.net.URI;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Private runtime configuration for the Portainer upstream.
- * Values are supplied by Config Server; no environment-specific defaults live in code.
+ * Values are supplied by Config Server; no environment-specific host names or defaults live in code.
  */
 @ConfigurationProperties(prefix = "homelab.docker.portainer")
 public record PortainerProperties(
@@ -18,9 +17,6 @@ public record PortainerProperties(
         int readTimeoutMs,
         long maxResponseBytes,
         Environments environments) {
-
-    private static final Set<String> APPROVED_ENVIRONMENTS = Set.of(
-            "util-pve", "dev-pve", "earn-pve", "media-pve", "ncloud-pve");
 
     public PortainerProperties {
         if (baseUrl == null || !"https".equalsIgnoreCase(baseUrl.getScheme())
@@ -40,12 +36,15 @@ public record PortainerProperties(
         }
         if (environments.allowlist().stream().anyMatch(key -> key == null
                 || !key.matches("[a-z][a-z0-9-]{0,62}"))
-                || new HashSet<>(environments.allowlist()).size() != environments.allowlist().size()
-                || !Set.copyOf(environments.allowlist()).equals(APPROVED_ENVIRONMENTS)) {
-            throw new IllegalStateException("Portainer environment allowlist must contain exactly the five approved hosts");
+                || new HashSet<>(environments.allowlist()).size() != environments.allowlist().size()) {
+            throw new IllegalStateException(
+                    "Portainer environment allowlist must contain unique lowercase host keys using letters, digits, and hyphens");
         }
     }
 
     public record Environments(List<String> allowlist) {
+        public Environments {
+            allowlist = allowlist == null ? null : List.copyOf(allowlist);
+        }
     }
 }

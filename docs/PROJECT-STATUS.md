@@ -2,24 +2,24 @@
 
 > **Purpose:** Canonical continuity record for maintainers and AI coding assistants. Update this file whenever a milestone, architecture decision, validation result, or deployment state changes.
 >
-> **Last updated:** 2026-11-19 (Asia/Manila)
+> **Last updated:** 2026-11-21 (Asia/Manila)
 > **Repository:** `ikoyski/homelab-management-mcp`
-> **Current focus:** Release 2 — Docker read-only inventory
+> **Current focus:** Release 2 — Docker inventory data-quality improvements
 
 ## Current project state
 
 | Area | Status | Notes |
 |---|---|---|
-| Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; live inventory was exercised through an authenticated MCP client. |
-| Claude Code client integration | Validated | OAuth, MCP connection/tool discovery, authenticated Proxmox tool use, and a live-inventory natural-language report succeeded on 2026-11-19. |
-| Grok client integration | Validated | Grok connected to the deployed MCP and successfully queried live Proxmox inventory, returning node, guest, and storage details on 2026-11-19. Docker tools were not tested. |
-| Gemini client integration | Validated | Gemini connected to the deployed MCP and returned a detailed live Proxmox inventory report covering the node, all six guests, and storage pools on 2026-11-20. Docker tools were not tested. |
-| Release 2 — Docker inventory | Initial modular-monolith implementation in progress | Portainer client, TLS-aware configuration, response-size limiting, endpoint resolver, Docker inventory adapter/models, and four MCP tools have been added on the feature branch. Build/tests and runtime configuration are not yet verified. |
+| Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; authenticated live inventory has been exercised by Claude Code, Grok, and Gemini. |
+| Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox inventory, and Docker inventory across all five configured hosts were successfully exercised. |
+| Grok client integration | Validated | Proxmox and Docker inventory tools were independently exercised; Docker results covered all five hosts and the same 43-container baseline. |
+| Gemini client integration | Validated | Authenticated MCP connection and live Proxmox inventory succeeded on 2026-11-20. Docker inventory has not been validated with Gemini. |
+| Release 2 — Docker inventory | Core implementation deployed and live-validated; enrichment improvements in progress | All five configured hosts return successfully. Claude Code reported 43 containers (39 running, 4 intentionally exited) with no collection errors. Network-side membership and container inspect metadata are gaps in the currently deployed build. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
-| Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture. Its reusable client, TLS, response-size-limit, endpoint-discovery, allowlist, and test code will be selectively ported into the MCP. |
-| Enforceable read-only Portainer access | Open implementation prerequisite | Implement and test a dedicated Portainer adapter exposing only fixed GET operations, with no generic path forwarding or caller-controlled endpoint IDs. |
-| Portainer TLS trust | Open deployment prerequisite | Provision and verify Java trust for the self-signed Portainer certificate; retain certificate-chain and hostname verification. |
-| Natural-language status/reporting improvements | Deferred | Revisit after Docker support is complete. |
+| Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the Portainer certificate is installed in the MCP runtime. Environment identities are supplied by private configuration; endpoint IDs are discovered dynamically. |
+| Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture; the Portainer adapter lives inside this MCP. |
+| Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
+| Natural-language status/reporting improvements | Deferred | Revisit after Docker inventory enrichment and host-scoped queries are complete. |
 
 ## Release 1 — completed
 
@@ -46,42 +46,42 @@ Important metric semantics:
 
 Read [Release 2 — Docker read-only inventory](architecture/release-2-docker-inventory.md) before implementation.
 
-The MCP will connect to exactly one Portainer Server on `util-pve`, through a dedicated internal Portainer infrastructure adapter. Portainer Server reaches its local Docker Engine and the four remote Docker Engines through Portainer Agents. The MCP must not connect directly to Agents or Docker sockets.
+The MCP connects to exactly one Portainer Server in the private management environment, through a dedicated internal Portainer infrastructure adapter. Portainer Server reaches its local Docker Engine and remote Docker Engines through Portainer Agents. The MCP must not connect directly to Agents or Docker sockets.
 
-Initial environment allowlist:
-
-| Environment | Proxmox guest | Connection through Portainer |
-|---|---:|---|
-| `util-pve (local)` | VM 101 | Local Docker endpoint |
-| `dev-pve` | VM 107 | Portainer Agent |
-| `earn-pve` | VM 105 | Portainer Agent |
-| `media-pve` | VM 106 | Portainer Agent |
-| `ncloud-pve` | VM 108 | Portainer Agent |
-
-`shared-pve` (VM 104) is intentionally excluded: it is a TurnKey File Server with no Docker Agent. It remains part of Proxmox inventory.
+The environment allowlist and any environment-to-guest mapping are maintained only in the private Config Server. The public repository does not enumerate real host names, Proxmox guest identifiers, counts, or mappings. Only exact environment identities supplied by that private allowlist are discovered; any unlisted environment is excluded.
 
 The planned MCP tools are:
 
 - `list_docker_hosts`
-- `list_docker_containers`
-- `list_docker_networks`
-- `get_docker_inventory`
+- `list_docker_containers` — optional exact `hostKey` filter; omitted means all five hosts
+- `list_docker_networks` — optional exact `hostKey` filter; omitted means all five hosts
+- `get_docker_inventory` — combined all-host inventory
 
 Internal inventory models must be independent of Portainer response DTOs. Environment IDs are discovered at runtime by the Portainer adapter and matched against the private server-side allowlist. One unavailable Agent must not suppress results from the other environments.
 
 The inventory must expose only explicitly allowlisted fields. Never return container environment variables, secrets, labels, commands, mounts, logs, raw inspect payloads, or arbitrary Docker metadata. No write-capable Docker tools belong in Release 2.
 
-## Release 2 — prerequisites and implementation status
+## Release 2 — implementation and live validation
 
-1. **Completed:** Upgrade Portainer Server first, then all Agents, to the compatible Portainer CE 2.45.4 release. All five environments were verified Up and reporting resources after the upgrade.
-2. **Architecture decision changed:** The separate [homelab-portainer-proxy](https://github.com/ikoyski/homelab-portainer-proxy) service is abandoned. PR #5 was closed unmerged. Relevant implementation code will be selectively moved into Homelab Management MCP.
-3. **Open:** Implement and test fixed allowlisted GET operations inside the Portainer adapter, dynamic endpoint discovery, strict environment matching, bounded responses, sanitized mapping, and per-environment failure isolation.
-4. **Open:** Provision and verify Java trust for the self-signed Portainer certificate in the MCP runtime, preserving normal certificate-chain and hostname/IP verification.
-5. After the adapter boundary and TLS trust are verified, implement application-owned Docker inventory models and the Docker inventory tools.
+The core Docker inventory implementation is deployed in the private homelab management environment and has been successfully exercised through authenticated Claude Code and Grok MCP clients.
+
+**Verified live behavior:**
+- Portainer Server and the four Agents are on CE 2.45.4; the five approved environments reconnect and return Docker Engine information.
+- Configured environment keys and their exact Portainer names are supplied by the private Config Server. Endpoint IDs remain dynamically discovered; the public source and documentation contain no live host identifiers.
+- Container and network discovery return results from all five hosts. Claude Code's observed baseline was 43 containers: 39 running and four exited.
+- The four exited containers in that baseline are intentional inventory states. Do not recommend restarting or deleting them, and do not treat their presence as an inventory failure.
+- Container-side network attachment names are available. In the currently deployed build, network objects may have empty `connectedContainers`; restart count, StartedAt, and uptime are also not yet enriched.
+- Both Claude Code and Grok returned `status: ok` and empty collection-error lists for the observed five-host validation.
+
+**Current improvement branch:** `feat/docker-inventory-enrichment-and-host-filters`.
+
+The branch adds bounded read-only container inspect enrichment, per-host network membership fallback, and optional exact `hostKey` filters for container and network list tools. These changes are not yet CI-verified, merged, or deployed. Do not claim those new fields or filter arguments are available in the live service until the PR passes CI, is merged, and the operator deploys the new image.
+
+The adapter remains limited to fixed GET operations. The Portainer API key inherits its user's Administrator permissions; protect it as a high-impact credential. Do not add generic URL forwarding or any write-capable Docker operation.
 
 ## Portainer upgrade compatibility
 
-**Completed upgrade recorded 2026-11-19:** Portainer Server on `util-pve` and the four remote Agents on `dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve` were upgraded to Portainer CE **2.45.4**. The Server was upgraded first, followed by the Agents. Afterward, all five Portainer environments were confirmed Up and reporting resources. Docker Engine versions observed during validation were 28.4.0 on the local `util-pve` environment and 29.1.3 on the four remote Agent-managed environments. The Portainer environment counts included intentionally stopped containers; stopped containers were not treated as an upgrade failure. This is an observed homelab validation, not a guarantee against future regressions.
+**Completed upgrade recorded 2026-11-19:** The Portainer Server and configured Agent-managed environments were upgraded to a compatible Portainer CE release. The Server was upgraded first, followed by the Agents. All configured environments were subsequently confirmed Up and reporting resources. Docker Engine information was successfully collected from the local and remote Agent-managed environments. This is an observed homelab validation, not a guarantee against future regressions.
 
 PR #19 formalized the upgrade regression procedure in the Release 2 architecture. For each future supported upgrade:
 
@@ -94,9 +94,9 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 
 ## AI client validation
 
-**Claude Code — validated 2026-11-19:** Claude Code successfully completed OAuth authorization against the Webtools Auth Server and connected to the deployed Homelab Management MCP. It used the Proxmox inventory tools and produced a natural-language summary from live inventory.
+**Claude Code — validated:** Claude Code successfully completed OAuth authorization against the Webtools Auth Server and connected to the deployed Homelab Management MCP. It used the Proxmox inventory tools and produced a natural-language summary from live inventory. It subsequently exercised the deployed Docker inventory tools across all five configured hosts, observing 43 containers (39 running, four intentionally exited) and no collection errors.
 
-**Grok — validated 2026-11-19:** Grok successfully connected to the deployed Homelab MCP and queried live Proxmox inventory. Its response included the Proxmox node, all six guests, and storage details. This confirms the observed Grok MCP/tool-execution path for Release 1. The Grok test did not exercise Docker inventory tools.
+**Grok — validated 2026-11-19 and subsequently for Docker:** Grok successfully connected to the deployed Homelab MCP and queried live Proxmox inventory. It also exercised all four Docker inventory tools across the five configured hosts. The Docker report independently confirmed host availability, the expected application containers, and the same network-membership and container-detail gaps observed by Claude Code.
 
 **Gemini — validated 2026-11-20:** Gemini successfully connected to the deployed Homelab MCP and queried live Proxmox inventory. Its response included a detailed breakdown of the Proxmox node, all six guests, and storage pools. This confirms the observed Gemini MCP/tool-execution path for Release 1. The Gemini test did not exercise Docker inventory tools.
 
@@ -123,16 +123,18 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 - 2026-11-19 — Grok connection and live Proxmox inventory query validated; Docker inventory was not tested.
 - 2026-11-20 — Gemini connection and live Proxmox inventory query validated; Docker inventory was not tested.
 - 2026-11-19 — Portainer Server and all four Agents upgraded to CE 2.45.4; all five environments reconnected.
-- 2026-11-19 — Portainer client/configuration, response-size limiter, dynamic endpoint resolver, inventory mapping, application use case, and four Docker MCP tool registrations added on the feature branch. Automated build/test verification remains outstanding.
+- 2026-11-19 — Portainer client/configuration, response-size limiter, dynamic endpoint resolver, inventory mapping, application use case, and four Docker MCP tool registrations added.
+- 2026-11-21 — Claude Code and Grok both validated the deployed Docker inventory across all five hosts; the observed baseline was 43 containers with four intentionally exited states.
+- 2026-11-21 — Started `feat/docker-inventory-enrichment-and-host-filters`: bounded inspect enrichment, explicit health semantics, network membership fallback, and optional host-scoped container/network tools. CI and live validation remain pending.
 
 ## Recommended next work
 
-1. Complete the module boundary review and verify that MCP tools call application use cases rather than upstream clients directly.
-2. Add/verify container detail enrichment for restart count, health, StartedAt, and uptime where needed; preserve honest null/unknown semantics when data is unavailable.
-3. Expand tests for endpoint discovery, allowlist exclusion, malformed responses, TLS failures, response limits, sensitive-field exclusion, and per-environment partial failures.
-4. Add the five-host Portainer runtime properties to the private Config Server only when the runtime configuration change is approved; keep the Portainer certificate truststore in the MCP runtime.
-5. Run Maven verify and inspect CI results; resolve all failures before merging.
-6. Validate through Claude Code or another authenticated MCP client. Deploy only after CI passes and the operator explicitly approves.
+1. Run Maven verify and inspect GitHub Actions CI for `feat/docker-inventory-enrichment-and-host-filters`; resolve all failures before merging.
+2. Verify both legacy and modern MCP transports advertise the optional `hostKey` argument only on `list_docker_containers` and `list_docker_networks`.
+3. After CI passes and the PR is merged, deploy only after explicit operator approval.
+4. Validate host-scoped calls and full inventory through Claude Code and Grok. Compare inspect-enriched fields and network membership with Portainer.
+5. Preserve the intentional exited-container baseline; do not add restart or cleanup suggestions.
+6. Keep the Portainer CA truststore in the MCP runtime and all API credentials in the private Config Server.
 
 ## Starting a new engineering conversation
 

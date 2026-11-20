@@ -7,8 +7,8 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Fixed-operation Portainer API client. Callers cannot supply paths, URLs or headers.
- * Portainer endpoint IDs are accepted only as internal adapter values discovered by
- * the adapter; they are never part of the inbound API.
+ * Portainer endpoint and container IDs are accepted only as internal values discovered
+ * from Portainer responses; they are never part of the inbound API.
  */
 @Component
 @ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
@@ -31,6 +31,18 @@ public class PortainerApiClient {
     public JsonNode listContainers(int discoveredEndpointId) {
         return restClient.get()
                 .uri("/api/endpoints/{id}/docker/containers/json?all=true", requireEndpointId(discoveredEndpointId))
+                .retrieve()
+                .body(JsonNode.class);
+    }
+
+    public JsonNode inspectContainer(int discoveredEndpointId, String discoveredContainerId) {
+        int endpointId = requireEndpointId(discoveredEndpointId);
+        if (discoveredContainerId == null || !discoveredContainerId.matches("[a-fA-F0-9]{12,64}")) {
+            throw new IllegalArgumentException("Discovered Docker container ID is invalid");
+        }
+        return restClient.get()
+                .uri("/api/endpoints/{id}/docker/containers/{containerId}/json",
+                        endpointId, discoveredContainerId)
                 .retrieve()
                 .body(JsonNode.class);
     }

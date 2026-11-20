@@ -1,6 +1,5 @@
 package com.ikoyski.homelab.management.mcp.config;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -11,6 +10,7 @@ import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpStatelessSyncServer;
 import io.modelcontextprotocol.server.transport.DefaultServerTransportSecurityValidator;
 import io.modelcontextprotocol.server.transport.HttpServletStatelessServerTransport;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -45,26 +45,21 @@ public class LegacyMcpConfig {
                 .capabilities(ServerCapabilities.builder().tools(false).build());
 
         for (String name : catalog.toolNames()) {
-            builder.toolCall(tool(name, catalog.toolDescription(name)),
-                    (transportContext, request) -> invoke(catalog, name));
+            builder.toolCall(tool(name, catalog.toolDescription(name), catalog.toolInputSchema(name)),
+                    (transportContext, request) -> invoke(catalog, request));
         }
         return builder.build();
     }
 
-    private static CallToolResult invoke(HomelabToolCatalog catalog, String name) {
-        String result = catalog.execute(name);
+    private static CallToolResult invoke(HomelabToolCatalog catalog, CallToolRequest request) {
+        String result = catalog.execute(request.name(), request.arguments());
         return CallToolResult.builder()
                 .content(List.of(TextContent.builder(result).build()))
                 .isError(result.startsWith("Error:"))
                 .build();
     }
 
-    private static Tool tool(String name, String description) {
-        Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("type", "object");
-        schema.put("properties", Map.of());
-        schema.put("additionalProperties", false);
-        schema.put("required", List.of());
-        return Tool.builder(name, schema).description(description).build();
+    private static Tool tool(String name, String description, Map<String, Object> inputSchema) {
+        return Tool.builder(name, inputSchema).description(description).build();
     }
 }

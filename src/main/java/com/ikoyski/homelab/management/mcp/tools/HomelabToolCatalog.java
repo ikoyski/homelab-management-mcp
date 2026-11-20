@@ -9,8 +9,8 @@ import java.util.Map;
 /**
  * Shared, protocol-neutral registry for all configured homelab inventory tools.
  *
- * <p>Both MCP protocol adapters use this catalog so their advertised tool surfaces
- * and execution dispatch remain consistent.</p>
+ * <p>Both MCP protocol adapters use this catalog so their advertised tool surfaces,
+ * input schemas, and execution dispatch remain consistent.</p>
  */
 public class HomelabToolCatalog {
 
@@ -47,8 +47,17 @@ public class HomelabToolCatalog {
         return provider == null ? null : provider.toolDescription(name);
     }
 
-    public String execute(String name) {
+    public Map<String, Object> toolInputSchema(String name) {
         HomelabToolProvider provider = providersByTool.get(name);
-        return provider == null ? "Error: Unknown tool." : provider.execute(name);
+        return provider == null ? Map.of() : provider.toolInputSchema(name);
+    }
+
+    public String execute(String name) {
+        return execute(name, Map.of());
+    }
+
+    public String execute(String name, Map<String, Object> arguments) {
+        HomelabToolProvider provider = providersByTool.get(name);
+        return provider == null ? "Error: Unknown tool." : provider.execute(name, arguments);
     }
 }

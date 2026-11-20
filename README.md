@@ -63,9 +63,28 @@ fields. The original `disk` and `maxdisk` fields are retained unchanged.
 
 Docker discovery and all infrastructure-changing operations are outside Release 1.
 
+## Release 2 — Docker read-only inventory
+
+The deployed service also provides read-only Docker inventory through one Portainer Server and its local/Agent-managed environments. Environment names, host identifiers, and environment-to-guest mappings are deployment-specific and are supplied by the private Config Server. They are intentionally not enumerated in this public repository; only identities present in the private allowlist are discovered.
+
+| MCP tool | Purpose |
+|---|---|
+| `list_docker_hosts` | Lists configured Docker hosts and their availability |
+| `list_docker_containers` | Lists containers across all configured hosts; optional host scoping is being added |
+| `list_docker_networks` | Lists networks across all configured hosts; optional host scoping is being added |
+| `get_docker_inventory` | Combines host, container, and network inventory |
+
+The current improvement branch adds an optional `hostKey` argument to the container and network list tools. It must exactly match a configured host key; omitted means all configured hosts. This argument is not available in the deployed runtime until the improvement PR passes CI, is merged, and the new image is deployed. Caller-supplied Portainer endpoint IDs and API paths are never accepted.
+
+The deployed baseline was validated with Claude Code and Grok across all five hosts. The observed inventory contained 43 containers (39 running and 4 intentionally exited) with no collection errors. Those exited containers are expected inventory states, not cleanup recommendations.
+
+Additional container-detail and network-membership enrichment is being developed separately. Detail inspection uses a fixed GET-only operation, extracts only explicitly allowlisted fields, and is bounded to four concurrent inspections per collection. If detail enrichment fails, the base container result is preserved and the affected host is marked partial. Missing network membership is derived only from container-side attachments on the same host.
+
+The Portainer API key inherits its user's Portainer permissions. The adapter exposes only fixed GET operations, but an administrator-owned API key retains administrator-level upstream privileges if compromised; protect it as a high-impact credential. See [Release 2 architecture](docs/architecture/release-2-docker-inventory.md) for the full contract.
+
 ## AI client integration
 
-Claude Code and Grok were successfully validated on 2026-11-19, and Gemini was successfully validated on 2026-11-20, against the deployed Homelab MCP. Each client connected through the authenticated MCP flow and successfully used the Proxmox inventory tools. Claude Code generated a natural-language report from live inventory data; Grok returned node, guest, and storage details; Gemini returned a detailed report covering the Proxmox node, all six guests, and storage pools. These are observed client validations for Release 1; they do not validate Docker inventory or imply that every AI client has been tested.
+Claude Code and Grok were successfully validated against the deployed Homelab MCP for Proxmox inventory on 2026-11-19 and for Docker inventory on 2026-11-21. Both Docker validations exercised all five configured hosts; the observed baseline was 43 containers, including four intentionally exited containers. Gemini was successfully validated for Proxmox inventory on 2026-11-20, covering the node, all six guests, and storage pools. These are observed end-to-end client results; they do not imply that every AI client or every Docker detail-enrichment field has been tested.
 
 ## Security boundaries
 
@@ -107,7 +126,7 @@ The Proxmox adapter uses HTTPS with normal JVM certificate and hostname verifica
 - Keep the CA and generated truststore on the private deployment host; never bake environment-specific private CA material into this public image or commit the truststore.
 - Do not use trust-all TLS settings, disable hostname verification, or use `curl -k` as a workaround.
 
-The private deployment procedure is maintained in `ikoyski/myhomelab`, at `pve/util-pve/docs/proxmox-ca-trust.md`. It records the host paths, Docker mounts, import/verification commands and CA renewal procedure.
+The private deployment repository contains the host-specific CA/truststore runbook, including local paths, Docker mounts, import/verification commands, and CA renewal procedure. Those values are intentionally omitted here.
 
 An unauthenticated request to the protected `/mcp` endpoint is expected to return HTTP 401 with an OAuth bearer challenge. The service port should remain unpublished on the host and reachable only through the intended private Docker network / Cloudflare Tunnel boundary. Do not expose the actuator management port publicly.
 
@@ -130,12 +149,12 @@ This is an observed homelab validation result, not a claim that every possible f
 
 ## Deployment
 
-The service is deployed as a Docker container on `util-pve` in the existing `utility_default` network. MCP listens on port 8083; Actuator uses the separate internal management port 8082. Keep the Cloudflare Tunnel origin pointed only at the MCP endpoint. Do not publish either container port directly to the host.
+The service is deployed as a Docker container on a private homelab management host and attached to an internal Docker network. MCP listens on port 8083; Actuator uses the separate internal management port 8082. Keep the Cloudflare Tunnel origin pointed only at the MCP endpoint. Do not publish either container port directly to the host.
 
 After CI publishes the image, update only this service:
 
 ```bash
-cd ~/myhomelab/pve/util-pve
+cd /path/to/private/compose-directory
 sudo docker compose pull homelab-management-mcp
 sudo docker compose up -d --no-deps --force-recreate --pull never homelab-management-mcp
 sudo docker compose ps homelab-management-mcp
@@ -145,7 +164,7 @@ sudo docker compose logs --tail=80 homelab-management-mcp
 Verify health from the internal Docker network:
 
 ```bash
-sudo docker run --rm --network utility_default curlimages/curl:latest \
+sudo docker run --rm --network "$HOMELAB_DOCKER_NETWORK" curlimages/curl:latest \
   -fsS http://homelab-management-mcp:8082/actuator/health
 ```
 
@@ -159,9 +178,8 @@ mvn -B clean verify
 
 The Config Server must be reachable using protected bootstrap settings supplied by the runtime environment.
 
-## Next release: Release 2 — Docker read-only inventory
+## Future releases
 
-- [Release 2 — Docker read-only inventory](docs/architecture/release-2-docker-inventory.md): one Portainer Server connection for the local Docker Engine and four Agent-managed Docker environments; read-only host, container, and network discovery. Portainer Server and all four Agents were upgraded to CE 2.45.4 on 2026-11-19 and all five environments reconnected. The accepted architecture is a modular monolith: a dedicated Portainer infrastructure adapter inside the MCP, separate from Proxmox and the application-owned inventory model. The separate Portainer Proxy approach was abandoned; see [ADR-0003](docs/architecture/decisions/ADR-0003-modular-monolith-infrastructure-boundaries.md). The design excludes shared-pve.
-- Later releases: separately designed, explicitly authorized operational actions with approval and audit controls.
+- Separately designed, explicitly authorized operational actions with approval and audit controls.
 
 Future write-capable tools must be separate from discovery tools and enforced server-side. Destructive actions must never be bundled into general inventory operations.

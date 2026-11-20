@@ -17,4 +17,8 @@ public class DockerInventoryUseCase {
     public DockerInventory collect() {
         return provider.collect();
     }
+
+    public DockerInventory collect(String hostKey) {
+        return provider.collect(hostKey);
+    }
 }

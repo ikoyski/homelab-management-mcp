@@ -88,7 +88,7 @@ homelab:
       known-hosts-file: ${HOMELAB_SSH_KNOWN_HOSTS_FILE}
       private-key-file: ${HOMELAB_SSH_PRIVATE_KEY_FILE}
     targets:
-      - id: dev-pve
+      - id: docker-host-a
         host: ${HOMELAB_DEV_PVE_SSH_HOST}
         user: ${HOMELAB_SSH_USER}
         role: docker-host
@@ -103,5 +103,5 @@ This is a design example, not a ready-to-deploy configuration. Exact Proxmox pri
 3. Implement and test Proxmox inventory parsing with mocked responses.
 4. Implement the fixed-command SSH adapter and safe Docker output parsing.
 5. Add MCP tools and tests for timeouts, partial failures, input validation, and secret redaction.
-6. Deploy to `util-pve` only after code review and successful CI.
+6. Deploy to the private homelab management environment only after code review and successful CI.
 7. Connect an MCP client over a trusted private network and validate read-only behavior.

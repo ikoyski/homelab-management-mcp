@@ -75,7 +75,7 @@ The truststore should be created from the JRE image's original `cacerts` so norm
 -Djavax.net.ssl.trustStorePassword=<truststore-password>
 ```
 
-Do not commit the CA/truststore or bake a site-specific CA into this public image. Do not disable certificate or hostname verification. The host-specific steps belong in the private `myhomelab` deployment runbook at `pve/util-pve/docs/proxmox-ca-trust.md`.
+Do not commit the CA/truststore or bake a site-specific CA into this public image. Do not disable certificate or hostname verification. The host-specific steps belong in the private homelab deployment runbook. Do not commit deployment paths, addresses, or certificate material to this public repository.
 
 ## Failure and data handling
 

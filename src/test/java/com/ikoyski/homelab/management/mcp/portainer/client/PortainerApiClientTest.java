@@ -79,6 +79,25 @@ class PortainerApiClientTest {
         server.verify();
     }
 
+
+    @Test
+    void capsLogResponseBytesAndMarksTheResultAsTruncated() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://portainer.test");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        PortainerApiClient client = new PortainerApiClient(builder.build());
+
+        server.expect(requestTo("https://portainer.test/api/endpoints/7/docker/containers/"
+                        + CONTAINER_ID + "/logs?stdout=true&stderr=true&timestamps=true&follow=false&tail=200"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(new byte[(256 * 1024) + 32], MediaType.APPLICATION_OCTET_STREAM));
+
+        DockerLogPayload payload = client.getContainerLogs(7, CONTAINER_ID, 200);
+
+        assertEquals(256 * 1024, payload.bytes().length);
+        assertEquals(true, payload.truncated());
+        server.verify();
+    }
+
     @Test
     void rejectsInvalidLogTailAndContainerIdsBeforeMakingRequests() {
         PortainerApiClient client = new PortainerApiClient(

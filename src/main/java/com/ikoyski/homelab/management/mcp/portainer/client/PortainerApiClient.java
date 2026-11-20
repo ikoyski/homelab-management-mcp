@@ -1,6 +1,5 @@
 package com.ikoyski.homelab.management.mcp.portainer.client;
 
-import java.io.IOException;
 import tools.jackson.databind.JsonNode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;

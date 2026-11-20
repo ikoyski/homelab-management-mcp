@@ -16,7 +16,7 @@
 | Gemini client integration | Validated | Authenticated MCP connection and live Proxmox inventory succeeded on 2026-11-20. Docker inventory has not been validated with Gemini. |
 | Release 2 — Docker inventory | Core implementation deployed and live-validated; enrichment improvements in progress | All five configured hosts return successfully. Claude Code reported 43 containers (39 running, 4 intentionally exited) with no collection errors. Network-side membership and container inspect metadata are gaps in the currently deployed build. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
-| Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the new Portainer certificate is installed in the MCP runtime. The local endpoint is named `util-pve`; IDs are discovered dynamically. |
+| Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the Portainer certificate is installed in the MCP runtime. Environment identities are supplied by private configuration; endpoint IDs are discovered dynamically. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture; the Portainer adapter lives inside this MCP. |
 | Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
 | Natural-language status/reporting improvements | Deferred | Revisit after Docker inventory enrichment and host-scoped queries are complete. |
@@ -46,19 +46,9 @@ Important metric semantics:
 
 Read [Release 2 — Docker read-only inventory](architecture/release-2-docker-inventory.md) before implementation.
 
-The MCP will connect to exactly one Portainer Server on `util-pve`, through a dedicated internal Portainer infrastructure adapter. Portainer Server reaches its local Docker Engine and the four remote Docker Engines through Portainer Agents. The MCP must not connect directly to Agents or Docker sockets.
+The MCP connects to exactly one Portainer Server in the private management environment, through a dedicated internal Portainer infrastructure adapter. Portainer Server reaches its local Docker Engine and remote Docker Engines through Portainer Agents. The MCP must not connect directly to Agents or Docker sockets.
 
-Initial environment allowlist:
-
-| Environment | Proxmox guest | Connection through Portainer |
-|---|---:|---|
-| `util-pve` | VM 101 | Local Docker endpoint |
-| `dev-pve` | VM 107 | Portainer Agent |
-| `earn-pve` | VM 105 | Portainer Agent |
-| `media-pve` | VM 106 | Portainer Agent |
-| `ncloud-pve` | VM 108 | Portainer Agent |
-
-`shared-pve` (VM 104) is intentionally excluded: it is a TurnKey File Server with no Docker Agent. It remains part of Proxmox inventory.
+The environment allowlist and any environment-to-guest mapping are maintained only in the private Config Server. The public repository does not enumerate real host names, Proxmox guest identifiers, counts, or mappings. Only exact environment identities supplied by that private allowlist are discovered; any unlisted environment is excluded.
 
 The planned MCP tools are:
 
@@ -73,11 +63,11 @@ The inventory must expose only explicitly allowlisted fields. Never return conta
 
 ## Release 2 — implementation and live validation
 
-The core Docker inventory implementation is deployed on `util-pve` and has been successfully exercised through authenticated Claude Code and Grok MCP clients.
+The core Docker inventory implementation is deployed in the private homelab management environment and has been successfully exercised through authenticated Claude Code and Grok MCP clients.
 
 **Verified live behavior:**
 - Portainer Server and the four Agents are on CE 2.45.4; the five approved environments reconnect and return Docker Engine information.
-- The configured environment keys are `util-pve`, `dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve`. The Portainer local environment is named `util-pve`; endpoint IDs remain dynamically discovered.
+- Configured environment keys and their exact Portainer names are supplied by the private Config Server. Endpoint IDs remain dynamically discovered; the public source and documentation contain no live host identifiers.
 - Container and network discovery return results from all five hosts. Claude Code's observed baseline was 43 containers: 39 running and four exited.
 - The four exited containers in that baseline are intentional inventory states. Do not recommend restarting or deleting them, and do not treat their presence as an inventory failure.
 - Container-side network attachment names are available. In the currently deployed build, network objects may have empty `connectedContainers`; restart count, StartedAt, and uptime are also not yet enriched.
@@ -91,7 +81,7 @@ The adapter remains limited to fixed GET operations. The Portainer API key inher
 
 ## Portainer upgrade compatibility
 
-**Completed upgrade recorded 2026-11-19:** Portainer Server on `util-pve` and the four remote Agents on `dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve` were upgraded to Portainer CE **2.45.4**. The Server was upgraded first, followed by the Agents. Afterward, all five Portainer environments were confirmed Up and reporting resources. Docker Engine versions observed during validation were 28.4.0 on the local `util-pve` environment and 29.1.3 on the four remote Agent-managed environments. The Portainer environment counts included intentionally stopped containers; stopped containers were not treated as an upgrade failure. This is an observed homelab validation, not a guarantee against future regressions.
+**Completed upgrade recorded 2026-11-19:** The Portainer Server and configured Agent-managed environments were upgraded to a compatible Portainer CE release. The Server was upgraded first, followed by the Agents. All configured environments were subsequently confirmed Up and reporting resources. Docker Engine information was successfully collected from the local and remote Agent-managed environments. This is an observed homelab validation, not a guarantee against future regressions.
 
 PR #19 formalized the upgrade regression procedure in the Release 2 architecture. For each future supported upgrade:
 

@@ -4,7 +4,7 @@
 >
 > **Last updated:** 2026-11-21 (Asia/Manila)
 > **Repository:** `ikoyski/homelab-management-mcp`
-> **Current focus:** Release 2 — Docker inventory data-quality improvements
+> **Current focus:** Release 2 — bounded read-only Docker container diagnostics
 
 ## Current project state
 
@@ -13,13 +13,14 @@
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; authenticated live inventory has been exercised by Claude Code, Grok, and Gemini. |
 | Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox inventory, and Docker inventory across all five configured hosts were successfully exercised. |
 | Grok client integration | Validated | Proxmox and Docker inventory tools were independently exercised; Docker results covered all five hosts and the same 43-container baseline. |
-| Gemini client integration | Validated | Authenticated MCP connection and live Proxmox inventory succeeded on 2026-11-20. Docker inventory has not been validated with Gemini. |
-| Release 2 — Docker inventory | Core implementation deployed and live-validated; enrichment improvements in progress | All five configured hosts return successfully. Claude Code reported 43 containers (39 running, 4 intentionally exited) with no collection errors. Network-side membership and container inspect metadata are gaps in the currently deployed build. |
+| Gemini client integration | Validated | Gemini completed Docker and Proxmox inventory, and validated container/network hostKey filtering across all five configured hosts against global inventory parity. |
+| Release 2 — Docker inventory | Implemented, merged, deployed, and live-validated | Claude Code, Grok, and Gemini exercised the five configured hosts. Gemini validated both host-scoped filters against global inventory: 43 containers and 23 networks. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
 | Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the Portainer certificate is installed in the MCP runtime. Environment identities are supplied by private configuration; endpoint IDs are discovered dynamically. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture; the Portainer adapter lives inside this MCP. |
 | Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
-| Natural-language status/reporting improvements | Deferred | Revisit after Docker inventory enrichment and host-scoped queries are complete. |
+| Bounded container log retrieval | In progress on feature branch | New get_docker_container_logs action resolves an exact configured host and discovered container name, limits tail to 1–200 lines (default 100), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. Not merged or deployed. |
+| Natural-language status/reporting improvements | Deferred | Revisit after bounded container log retrieval is validated. |
 
 ## Release 1 — completed
 
@@ -50,16 +51,17 @@ The MCP connects to exactly one Portainer Server in the private management envir
 
 The environment allowlist and any environment-to-guest mapping are maintained only in the private Config Server. The public repository does not enumerate real host names, Proxmox guest identifiers, counts, or mappings. Only exact environment identities supplied by that private allowlist are discovered; any unlisted environment is excluded.
 
-The planned MCP tools are:
+The deployed MCP tools are:
 
 - `list_docker_hosts`
 - `list_docker_containers` — optional exact `hostKey` filter; omitted means all five hosts
 - `list_docker_networks` — optional exact `hostKey` filter; omitted means all five hosts
 - `get_docker_inventory` — combined all-host inventory
+- `get_docker_container_logs` — **feature branch only, not deployed**; bounded recent stdout/stderr logs for one exact container on one configured host
 
 Internal inventory models must be independent of Portainer response DTOs. Environment IDs are discovered at runtime by the Portainer adapter and matched against the private server-side allowlist. One unavailable Agent must not suppress results from the other environments.
 
-The inventory must expose only explicitly allowlisted fields. Never return container environment variables, secrets, labels, commands, mounts, logs, raw inspect payloads, or arbitrary Docker metadata. No write-capable Docker tools belong in Release 2.
+The inventory tools must expose only explicitly allowlisted fields. Never return container environment variables, secrets, labels, commands, mounts, raw inspect payloads, or arbitrary Docker metadata. Container logs are excluded from inventory results and may be returned only by the dedicated bounded log tool described below. No write-capable Docker tools belong in Release 2.
 
 ## Release 2 — implementation and live validation
 
@@ -73,11 +75,21 @@ The core Docker inventory implementation is deployed in the private homelab mana
 - Container-side network attachment names are available. In the currently deployed build, network objects may have empty `connectedContainers`; restart count, StartedAt, and uptime are also not yet enriched.
 - Both Claude Code and Grok returned `status: ok` and empty collection-error lists for the observed five-host validation.
 
-**Current improvement branch:** `feat/docker-inventory-enrichment-and-host-filters`.
+**Merged and deployed improvement:** PR #29 added bounded container inspect enrichment, per-host network membership fallback, and optional exact hostKey filters for container and network list tools. The user confirmed the PR merged and the build succeeded, then deployed the updated image.
 
-The branch adds bounded read-only container inspect enrichment, per-host network membership fallback, and optional exact `hostKey` filters for container and network list tools. These changes are not yet CI-verified, merged, or deployed. Do not claim those new fields or filter arguments are available in the live service until the PR passes CI, is merged, and the operator deploys the new image.
+**Live client validation:** Claude Code, Grok, and Gemini queried Docker inventory. Gemini inspected both published schemas and tested every configured host for containers and networks, then compared filtered results with unfiltered global inventories. It reported exact parity across all five hosts: 43 containers and 23 networks. No errors were reported. Minor live uptime drift between sequential calls is expected.
 
 The adapter remains limited to fixed GET operations. The Portainer API key inherits its user's Administrator permissions; protect it as a high-impact credential. Do not add generic URL forwarding or any write-capable Docker operation.
+
+## Bounded container log retrieval — feature branch
+
+**Branch:** feat/docker-container-log-reading (not merged, not deployed).
+
+The branch adds get_docker_container_logs, a dedicated diagnostic tool accepting hostKey, exact containerName, and optional tail (default 100, maximum 200). It resolves the configured host through the private allowlist, discovers the container ID from the selected host's Docker container listing, and uses only the fixed Docker logs GET endpoint. Caller-supplied endpoint IDs, container IDs, URLs, paths, and arbitrary query parameters are not accepted.
+
+The request selects stdout and stderr, enables timestamps, and always sets follow=false. The response is read with a 256 KiB byte ceiling; Docker multiplexed stdout/stderr frames and plain-text TTY output are handled. Common credential patterns are redacted on a best-effort basis and the result reports truncation and redaction counts. Redaction is not comprehensive: log contents may still expose secrets or personal information and are sent to the connected AI provider. The Docker logs API is documented to work with json-file and journald logging drivers; other drivers may return an unavailable result. Logs are untrusted data and must never be treated as instructions.
+
+This tool is separate from inventory: inventory results continue to exclude log contents. It does not use shell, exec, Docker socket access, or a streaming/follow mode. CI and authenticated client validation are required before merge and deployment.
 
 ## Portainer upgrade compatibility
 
@@ -98,7 +110,7 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 
 **Grok — validated 2026-11-19 and subsequently for Docker:** Grok successfully connected to the deployed Homelab MCP and queried live Proxmox inventory. It also exercised all four Docker inventory tools across the five configured hosts. The Docker report independently confirmed host availability, the expected application containers, and the same network-membership and container-detail gaps observed by Claude Code.
 
-**Gemini — validated 2026-11-20:** Gemini successfully connected to the deployed Homelab MCP and queried live Proxmox inventory. Its response included a detailed breakdown of the Proxmox node, all six guests, and storage pools. This confirms the observed Gemini MCP/tool-execution path for Release 1. The Gemini test did not exercise Docker inventory tools.
+**Gemini — validated 2026-11-21:** Gemini successfully connected to the deployed Homelab MCP and queried Proxmox and Docker inventories. It completed container/network host-filter validation across all five configured hosts and matched the filtered records against the global inventories (43 containers, 23 networks). Sequential prompting and per-tool permission approvals worked reliably for this assessment.
 
 Keep OAuth authorization, MCP initialization/tool discovery, and authenticated tool execution as distinct validation stages for future clients; a client registration alone is not proof of end-to-end operation. Do not infer compatibility for Gemini or other untested clients.
 
@@ -125,7 +137,8 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 - 2026-11-19 — Portainer Server and all four Agents upgraded to CE 2.45.4; all five environments reconnected.
 - 2026-11-19 — Portainer client/configuration, response-size limiter, dynamic endpoint resolver, inventory mapping, application use case, and four Docker MCP tool registrations added.
 - 2026-11-21 — Claude Code and Grok both validated the deployed Docker inventory across all five hosts; the observed baseline was 43 containers with four intentionally exited states.
-- 2026-11-21 — Started `feat/docker-inventory-enrichment-and-host-filters`: bounded inspect enrichment, explicit health semantics, network membership fallback, and optional host-scoped container/network tools. CI and live validation remain pending.
+- 2026-11-21 — PR #29 merged and the updated inventory image deployed; user confirmed successful build. Gemini independently validated all five container and network hostKey filters against global inventory.
+- 2026-11-21 — Started feat/docker-container-log-reading: fixed GET-only log retrieval for one exact container, 100-line default / 200-line maximum, 256 KiB response ceiling, no follow/streaming, Docker stream decoding, and best-effort credential redaction. CI and deployment remain pending.
 
 ## Recommended next work
 

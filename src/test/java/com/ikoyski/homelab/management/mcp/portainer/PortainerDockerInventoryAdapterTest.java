@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
+import com.ikoyski.homelab.management.mcp.portainer.client.DockerLogPayload;
 import com.ikoyski.homelab.management.mcp.portainer.config.PortainerProperties;
 import com.ikoyski.homelab.management.mcp.portainer.discovery.PortainerEndpointResolver;
 import com.ikoyski.homelab.management.mcp.portainer.discovery.PortainerEndpointResolver.EndpointResolution;
@@ -213,6 +216,75 @@ class PortainerDockerInventoryAdapterTest {
         assertThat(result.hosts()).filteredOn(host -> "docker-host-b".equals(host.hostKey()))
                 .singleElement().extracting(host -> host.status()).isEqualTo("ok");
         assertThat(result.errors()).anyMatch(error -> error.startsWith("docker-host-a: containers:"));
+    }
+
+
+    @Test
+    void resolvesExactHostAndContainerBeforeReturningBoundedRedactedLogs() throws Exception {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
+        when(client.listContainers(7)).thenReturn(mapper.readTree("""
+                [{
+                  "Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                  "Names":["/sample"]
+                }]
+                """));
+        byte[] framed = dockerFrame(1, "token=top-secret-value\nnormal log line\n");
+        when(client.getContainerLogs(7, CONTAINER_ID, 100))
+                .thenReturn(new DockerLogPayload(framed, false));
+
+        DockerContainerLogs result = adapter(client, resolver).readLogs("docker-host-a", "sample", 100);
+
+        assertThat(result.status()).isEqualTo("ok");
+        assertThat(result.hostKey()).isEqualTo("docker-host-a");
+        assertThat(result.containerName()).isEqualTo("sample");
+        assertThat(result.requestedTail()).isEqualTo(100);
+        assertThat(result.logs()).contains("token=[REDACTED]", "normal log line")
+                .doesNotContain("top-secret-value");
+        assertThat(result.redactedValueCount()).isEqualTo(1);
+        verify(client).getContainerLogs(7, CONTAINER_ID, 100);
+    }
+
+    @Test
+    void rejectsUnconfiguredHostAndDoesNotDiscoverOrCallPortainer() {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+
+        DockerContainerLogs result = adapter(client, resolver).readLogs("not-configured", "sample", 100);
+
+        assertThat(result.status()).isEqualTo("unavailable");
+        assertThat(result.errorCode()).isEqualTo("host_not_configured");
+        verifyNoInteractions(client, resolver);
+    }
+
+    @Test
+    void requiresAnExactDiscoveredContainerNameAndDoesNotCallTheLogsEndpointWhenMissing() throws Exception {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
+        when(client.listContainers(7)).thenReturn(mapper.readTree("""
+                [{"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                  "Names":["/sample-api"]}]
+                """));
+
+        DockerContainerLogs result = adapter(client, resolver).readLogs("docker-host-a", "sample", 100);
+
+        assertThat(result.status()).isEqualTo("unavailable");
+        assertThat(result.errorCode()).isEqualTo("container_not_found");
+        verify(client, never()).getContainerLogs(7, CONTAINER_ID, 100);
+    }
+
+    private static byte[] dockerFrame(int streamType, String value) {
+        byte[] payload = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] frame = new byte[payload.length + 8];
+        frame[0] = (byte) streamType;
+        frame[4] = (byte) (payload.length >>> 24);
+        frame[5] = (byte) (payload.length >>> 16);
+        frame[6] = (byte) (payload.length >>> 8);
+        frame[7] = (byte) payload.length;
+        System.arraycopy(payload, 0, frame, 8, payload.length);
+        return frame;
     }
 
     private PortainerDockerInventoryAdapter adapter(PortainerApiClient client,

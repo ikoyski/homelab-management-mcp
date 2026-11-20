@@ -8,17 +8,7 @@ Release 2 adds read-only Docker discovery to the existing Homelab Management MCP
 
 The MCP connects directly to **one Portainer Server** through its dedicated, internal Portainer infrastructure adapter. Portainer Server is the control-plane entry point for its local Docker Engine and the remote Docker Engines reached through Portainer Agents. The MCP does not connect directly to remote Docker Engines or Agents. The adapter is the only component in the application that calls the Portainer API.
 
-The initial configured Docker environment allowlist is:
-
-| Portainer environment | Proxmox guest | Connection |
-|---|---:|---|
-| **util-pve** | VM 101 | Portainer Server local Docker endpoint |
-| **dev-pve** | VM 107 | Portainer Agent |
-| **earn-pve** | VM 105 | Portainer Agent |
-| **media-pve** | VM 106 | Portainer Agent |
-| **ncloud-pve** | VM 108 | Portainer Agent |
-
-**shared-pve (VM 104)** is intentionally excluded because it is a TurnKey File Server and has no Docker Agent. It remains visible through Release 1 Proxmox inventory.
+The Docker environment allowlist and any environment-to-guest mappings are supplied only by the private Config Server. The public repository does not enumerate live host names, Proxmox guest identifiers, environment counts, or mappings. Only exact identities present in the private allowlist are discovered; any unlisted environment is excluded.
 
 Portainer environment IDs are discovered at runtime. Do not hard-code Portainer endpoint IDs or accept endpoint IDs, URLs, host names, Docker API paths, or commands from MCP callers. Match discovered environments against the server-side allowlist and associate them with Proxmox guests using private configuration.
 
@@ -35,11 +25,11 @@ Release 2 is strictly read-only. It does not start, stop, restart, create, updat
         | dedicated Portainer adapter (fixed GET operations, verified TLS)
         v
     Portainer Server
-        |-- local Docker Engine (util-pve)
-        |-- Portainer Agent --> Docker Engine (dev-pve)
-        |-- Portainer Agent --> Docker Engine (earn-pve)
-        |-- Portainer Agent --> Docker Engine (media-pve)
-        '-- Portainer Agent --> Docker Engine (ncloud-pve)
+        |-- local Docker Engine (private management environment)
+        |-- Portainer Agent --> Docker Engine (remote environment A)
+        |-- Portainer Agent --> Docker Engine (remote environment B)
+        |-- Portainer Agent --> Docker Engine (remote environment C)
+        '-- Portainer Agent --> Docker Engine (additional configured environments)
 
 Only the Portainer Server is a network dependency for Docker inventory. The MCP must not connect directly to Agent port 9001, remote Docker TCP sockets, or remote Docker Unix sockets. The internal Portainer adapter discovers environment IDs, resolves them against its private configured allowlist, and issues fixed upstream requests to Portainer.
 
@@ -63,9 +53,9 @@ Do not add a Docker API version prefix from caller input. If a version prefix is
 
 ## Portainer version and upgrade status
 
-**Completed 2026-11-19:** The homelab Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve`) were upgraded to Portainer Community Edition **2.45.4**. The Server was upgraded first, followed by the Agents. All five configured environments were subsequently confirmed Up and reporting resources.
+**Completed 2026-11-19:** The Portainer Server and its configured remote Portainer Agents were upgraded to a compatible Portainer Community Edition release. The Server was upgraded first, followed by the Agents. All configured environments were subsequently confirmed Up and reporting resources. Exact versions and environment identities remain in the private deployment record.
 
-Docker Engine versions observed during this validation were **28.4.0** for the local `util-pve` environment and **29.1.3** for each of the four remote Agent-managed environments. These are the observed engine versions at the time of the upgrade validation; they are not Portainer version numbers.
+Docker Engine information was returned for both the local and remote Agent-managed environments. Per-environment versions are kept in the private deployment validation record.
 
 The upgrade prerequisite is therefore complete for the current deployment. Before future upgrades, review current Portainer security advisories, supported release guidance, and Server/Agent compatibility; repeat the regression procedure below and record the new versions/results. The completed upgrade does not by itself establish a read-only authorization boundary or complete TLS trust provisioning.
 
@@ -248,7 +238,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 2. Confirm the Portainer Server API is reachable from the MCP internal network only.
 3. Confirm TLS certificate-chain and hostname/IP verification succeed from the MCP runtime.
 4. Verify the chosen read-only boundary rejects write methods and unapproved API paths.
-5. Verify exactly the five configured environments are discovered; confirm **shared-pve** is excluded.
+5. Verify only the environments supplied by the private allowlist are discovered; confirm unlisted environments are excluded.
 6. Verify environment IDs are discovered dynamically and map to the expected Proxmox guests.
 7. Compare Docker host, container, network, health, restart, uptime, and published-port data with Portainer.
 8. Test an unavailable Agent and confirm the other environments still return results.
@@ -263,5 +253,5 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 - Docker image pulls, builds, pruning, volume changes, stack deployments, and network changes.
 - Docker logs, environment variables, secrets, labels, mounts, and arbitrary inspect output.
 - Direct SSH access, direct Docker socket access, or direct remote Docker TCP access from the MCP.
-- Docker discovery on **shared-pve**.
+- Docker discovery on environments excluded from the private allowlist.
 - Natural-language status thresholds, historical change detection, and short/detailed homelab reporting. These remain a follow-up after Docker support is complete.

@@ -80,6 +80,10 @@ public class PortainerApiClient {
                 });
     }
 
+    public JsonNode listNetworks(int discoveredEndpointId) {
+        return getEndpointResource(discoveredEndpointId, "networks");
+    }
+
     private JsonNode getEndpointResource(int endpointId, String resource) {
         int validId = requireEndpointId(endpointId);
         return get("/api/endpoints/" + validId + "/docker/" + resource);

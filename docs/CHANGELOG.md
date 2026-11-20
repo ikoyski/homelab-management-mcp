@@ -4,8 +4,11 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ## 2026-11-21
 
+### Documentation
+- Rewrote the public README and added end-to-end human setup guides for Proxmox, Docker/Portainer, private CA and Java truststore, Config Server/deployment, and AI-client validation.
+
 ### Merged and deployed
-- PR #30 merged and deployed the dedicated read-only `get_docker_container_logs` tool. It resolves one exact configured host and discovered container name, defaults to 100 log lines (maximum 200), caps response bytes at 256 KiB, requests stdout/stderr with timestamps and `follow=false`, decodes Docker multiplexed and TTY output, and applies best-effort common-credential redaction. Live AI-client retrieval validation remains outstanding.
+- PR #30 merged and deployed the dedicated read-only `get_docker_container_logs` tool. It resolves one exact configured host and discovered container name, defaults to 100 log lines (maximum 200), caps response bytes at 256 KiB, requests stdout/stderr with timestamps and `follow=false`, decodes Docker multiplexed and TTY output, and applies best-effort common-credential redaction. Live log retrieval was subsequently confirmed through Claude, Gemini, and Grok.
 - PR #29 merged the bounded container inspect enrichment, explicit health-check semantics, same-host network membership fallback, and optional exact `hostKey` filters for container and network list tools. The updated image was deployed and host filtering was independently validated by Gemini.
 
 ### Validated

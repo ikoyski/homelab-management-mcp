@@ -4,11 +4,9 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ## 2026-11-21
 
-### In progress
-- Branch `feat/docker-container-log-reading` adds a dedicated read-only `get_docker_container_logs` tool. It resolves one exact configured host and discovered container name, defaults to 100 log lines (maximum 200), caps response bytes at 256 KiB, requests stdout/stderr with timestamps and `follow=false`, decodes Docker multiplexed and TTY output, and applies best-effort common-credential redaction. The tool is not merged or deployed; CI and authenticated client validation are pending.
-
 ### Merged and deployed
-- PR #29 merged the bounded container inspect enrichment, explicit health-check semantics, same-host network membership fallback, and optional exact `hostKey` filters for container and network list tools. The user confirmed the build succeeded and deployed the updated image.
+- PR #30 merged and deployed the dedicated read-only `get_docker_container_logs` tool. It resolves one exact configured host and discovered container name, defaults to 100 log lines (maximum 200), caps response bytes at 256 KiB, requests stdout/stderr with timestamps and `follow=false`, decodes Docker multiplexed and TTY output, and applies best-effort common-credential redaction. Live AI-client retrieval validation remains outstanding.
+- PR #29 merged the bounded container inspect enrichment, explicit health-check semantics, same-host network membership fallback, and optional exact `hostKey` filters for container and network list tools. The updated image was deployed and host filtering was independently validated by Gemini.
 
 ### Validated
 - Claude Code, Grok, and Gemini exercised the deployed Docker inventory across all five configured Portainer environments. Gemini validated both host-scoped filters against global inventory parity: 43 containers and 23 networks. Four exited containers are intentional and are not cleanup/restart recommendations.

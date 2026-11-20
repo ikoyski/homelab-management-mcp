@@ -54,7 +54,7 @@ Do not add a Docker API version prefix from caller input. If a version prefix is
 
 ## Bounded container log diagnostics
 
-PR #30 added `get_docker_container_logs` and was merged; the operator confirmed the updated image was deployed on 2026-11-21 (Asia/Manila). Live retrieval through an authenticated AI client remains a separate validation step. The tool accepts only an exact configured `hostKey`, an exact `containerName` discovered on that host, and optional integer `tail` from 1 to 200 (default 100). The adapter first resolves the host through the private allowlist, lists containers on that environment, and resolves the exact name to an internally discovered hexadecimal container ID. It does not accept container IDs, endpoint IDs, URLs, paths, or arbitrary query parameters from callers.
+PR #30 added `get_docker_container_logs` and was merged; the operator confirmed the updated image was deployed on 2026-11-21 (Asia/Manila). Live retrieval has been validated through Claude, Gemini, and Grok. The tool accepts only an exact configured `hostKey`, an exact `containerName` discovered on that host, and optional integer `tail` from 1 to 200 (default 100). The adapter first resolves the host through the private allowlist, lists containers on that environment, and resolves the exact name to an internally discovered hexadecimal container ID. It does not accept container IDs, endpoint IDs, URLs, paths, or arbitrary query parameters from callers.
 
 The upstream request is fixed to `stdout=true`, `stderr=true`, `timestamps=true`, `follow=false`, and a bounded `tail` value. The response is read up to 256 KiB; larger responses are marked truncated. Docker's multiplexed stdout/stderr frame format is decoded, with plain-text TTY output supported. Common credential patterns (authorization schemes, common secret key/value fields, and URL user-info passwords) receive best-effort redaction. The returned result includes requested tail, bytes returned, truncation status, redaction count, and either log text or a sanitized error code.
 
@@ -193,7 +193,7 @@ The planned tools are:
 - **get_docker_inventory** — combines host, container, and network inventory with collection timestamps and partial-result information.
 - **get_docker_container_logs** — bounded recent stdout/stderr logs for one exact container on one configured host (merged and deployed via PR #30).
 
-The optional `hostKey` argument is supported by `list_docker_containers` and `list_docker_networks`. It must exactly match a configured internal host key; an invalid key is rejected before any Portainer request. Omitting it returns results across all configured hosts. The log tool requires `hostKey` and `containerName` and accepts only an optional bounded `tail` argument. It is merged and deployed; verify live retrieval through an authenticated client before claiming end-to-end log validation.
+The optional `hostKey` argument is supported by `list_docker_containers` and `list_docker_networks`. It must exactly match a configured internal host key; an invalid key is rejected before any Portainer request. Omitting it returns results across all configured hosts. The log tool requires `hostKey` and `containerName` and accepts only an optional bounded `tail` argument. It is merged, deployed, and live-validated through Claude, Gemini, and Grok.
 
 Tool inputs must not accept arbitrary URLs, Portainer endpoint IDs, Docker API paths, commands, container exec instructions, or credentials.
 
@@ -257,7 +257,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 7. Compare Docker host, container, network, health, restart, uptime, and published-port data with Portainer.
 8. Test an unavailable Agent and confirm the other environments still return results.
 9. Run Maven tests and inspect CI output.
-10. Confirm no write-capable tools are advertised and no secrets, environment variables, labels, or raw inspect payloads appear in inventory output or service logs. For the separate log tool, verify bounded retrieval, best-effort redaction, explicit sensitive-data warning, and no follow/streaming behavior.
+10. Confirm no write-capable tools are advertised and no secrets, environment variables, labels, or raw inspect payloads appear in inventory output or service logs. For the separate log tool, confirm bounded retrieval, best-effort redaction, explicit sensitive-data warning, and no follow/streaming behavior; live retrieval has been exercised through Claude, Gemini, and Grok.
 11. After a supported Portainer Server and Agent upgrade, repeat the same tests and verify all five environments, inventory semantics, partial-failure handling, and Agent recovery; record versions and results. A backward-compatible upgrade should not require an MCP code change.
 12. Deploy only after CI passes and explicit approval; verify through an authenticated MCP client.
 
@@ -265,7 +265,7 @@ The combined inventory status is **ok**, **partial**, or **unavailable** based o
 
 - Starting, stopping, restarting, creating, deleting, updating, or executing commands in containers.
 - Docker image pulls, builds, pruning, volume changes, stack deployments, and network changes.
-- Docker logs, environment variables, secrets, labels, mounts, and arbitrary inspect output.
+- Environment variables, secrets, labels, mounts, and arbitrary inspect output. Container logs are available only through the dedicated bounded log tool.
 - Direct SSH access, direct Docker socket access, or direct remote Docker TCP access from the MCP.
 - Docker discovery on environments excluded from the private allowlist.
 - Natural-language status thresholds, historical change detection, and short/detailed homelab reporting. These remain a follow-up after Docker support is complete.

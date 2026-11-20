@@ -1,6 +1,9 @@
 package com.ikoyski.homelab.management.mcp.portainer;
 
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryProvider;
+import com.ikoyski.homelab.management.mcp.inventory.application.DockerContainerLogsProvider;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
+import com.ikoyski.homelab.management.mcp.portainer.client.DockerLogPayload;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainer;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerHost;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
@@ -41,7 +44,7 @@ import tools.jackson.databind.JsonNode;
  */
 @Component
 @ConditionalOnProperty(prefix = "homelab.docker.portainer", name = "base-url")
-public class PortainerDockerInventoryAdapter implements DockerInventoryProvider {
+public class PortainerDockerInventoryAdapter implements DockerInventoryProvider, DockerContainerLogsProvider {
     private static final Logger log = LoggerFactory.getLogger(PortainerDockerInventoryAdapter.class);
     private static final Pattern HEALTH_PATTERN = Pattern.compile("\\b(healthy|unhealthy|starting)\\b",
             Pattern.CASE_INSENSITIVE);
@@ -195,6 +198,91 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider 
         }
 
         return inventory(collectedAt, hosts, containers, addContainerMembership(networks, containers), errors);
+    }
+
+
+    @Override
+    public DockerContainerLogs readLogs(String hostKey, String containerName, int tail) {
+        if (hostKey == null || !properties.environments().allowlist().contains(hostKey)) {
+            return logFailure(hostKey, containerName, tail, "host_not_configured");
+        }
+        if (containerName == null || !containerName.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,254}")) {
+            return logFailure(hostKey, containerName, tail, "invalid_container_name");
+        }
+        if (tail < 1 || tail > 200) {
+            return logFailure(hostKey, containerName, tail, "invalid_tail");
+        }
+
+        try {
+            EndpointResolution resolution = resolver.resolveAll().get(hostKey);
+            if (resolution == null || !resolution.isResolved()) {
+                return logFailure(hostKey, containerName, tail, resolutionErrorCode(resolution));
+            }
+
+            JsonNode response = client.listContainers(resolution.endpointId());
+            if (response == null || !response.isArray()) {
+                return logFailure(hostKey, containerName, tail, "unexpected_response");
+            }
+
+            String discoveredContainerId = null;
+            int matches = 0;
+            for (JsonNode item : response) {
+                JsonNode names = item.path("Names");
+                if (!names.isArray()) {
+                    continue;
+                }
+                boolean exactMatch = false;
+                for (JsonNode nameNode : names) {
+                    if (!nameNode.isString()) {
+                        continue;
+                    }
+                    String discoveredName = nameNode.stringValue();
+                    if (discoveredName.startsWith("/")) {
+                        discoveredName = discoveredName.substring(1);
+                    }
+                    if (containerName.equals(discoveredName)) {
+                        exactMatch = true;
+                        break;
+                    }
+                }
+                if (exactMatch) {
+                    matches++;
+                    discoveredContainerId = text(item, "Id");
+                }
+            }
+
+            if (matches == 0) {
+                return logFailure(hostKey, containerName, tail, "container_not_found");
+            }
+            if (matches != 1 || discoveredContainerId == null
+                    || !discoveredContainerId.matches("[a-fA-F0-9]{12,64}")) {
+                return logFailure(hostKey, containerName, tail, "container_identity_ambiguous");
+            }
+
+            DockerLogPayload payload = client.getContainerLogs(
+                    resolution.endpointId(), discoveredContainerId, tail);
+            String decoded = DockerLogDecoder.decode(payload.bytes(), payload.truncated());
+            DockerLogRedactor.Redaction redaction = DockerLogRedactor.redact(decoded);
+            return new DockerContainerLogs("ok", hostKey, containerName, tail,
+                    payload.bytes().length, payload.truncated(), redaction.redactedValueCount(),
+                    redaction.value(), null);
+        } catch (PortainerApiClient.DockerLogRequestException ex) {
+            String code = ex.statusCode() == 404 ? "container_not_found"
+                    : ex.statusCode() == 401 || ex.statusCode() == 403 ? "portainer_authentication_failed"
+                    : ex.statusCode() == 502 || ex.statusCode() == 503 || ex.statusCode() == 504
+                    ? "environment_unavailable" : "logs_unavailable";
+            log.warn("Portainer Docker logs request failed errorCode={}", code);
+            return logFailure(hostKey, containerName, tail, code);
+        } catch (Exception ex) {
+            String code = ex instanceof RestClientResponseException ? errorCode(ex) : "logs_unavailable";
+            log.warn("Portainer Docker log retrieval failed errorCode={}", code);
+            return logFailure(hostKey, containerName, tail, code);
+        }
+    }
+
+    private static DockerContainerLogs logFailure(String hostKey, String containerName, int tail, String code) {
+        return new DockerContainerLogs("unavailable", hostKey, containerName, tail,
+                0, false, 0, "", code);
     }
 
     private List<String> requestedHosts(String hostKey) {

@@ -65,7 +65,7 @@ Docker discovery and all infrastructure-changing operations are outside Release 
 
 ## Release 2 — Docker read-only inventory
 
-The deployed service also provides read-only Docker inventory through one Portainer Server and its local/Agent-managed environments. The five configured hosts are `util-pve`, `dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve`; `shared-pve` is excluded.
+The deployed service also provides read-only Docker inventory through one Portainer Server and its local/Agent-managed environments. Environment names, host identifiers, and environment-to-guest mappings are deployment-specific and are supplied by the private Config Server. They are intentionally not enumerated in this public repository; only identities present in the private allowlist are discovered.
 
 | MCP tool | Purpose |
 |---|---|
@@ -126,7 +126,7 @@ The Proxmox adapter uses HTTPS with normal JVM certificate and hostname verifica
 - Keep the CA and generated truststore on the private deployment host; never bake environment-specific private CA material into this public image or commit the truststore.
 - Do not use trust-all TLS settings, disable hostname verification, or use `curl -k` as a workaround.
 
-The private deployment procedure is maintained in `ikoyski/myhomelab`, at `pve/util-pve/docs/proxmox-ca-trust.md`. It records the host paths, Docker mounts, import/verification commands and CA renewal procedure.
+The private deployment repository contains the host-specific CA/truststore runbook, including local paths, Docker mounts, import/verification commands, and CA renewal procedure. Those values are intentionally omitted here.
 
 An unauthenticated request to the protected `/mcp` endpoint is expected to return HTTP 401 with an OAuth bearer challenge. The service port should remain unpublished on the host and reachable only through the intended private Docker network / Cloudflare Tunnel boundary. Do not expose the actuator management port publicly.
 
@@ -149,12 +149,12 @@ This is an observed homelab validation result, not a claim that every possible f
 
 ## Deployment
 
-The service is deployed as a Docker container on `util-pve` in the existing `utility_default` network. MCP listens on port 8083; Actuator uses the separate internal management port 8082. Keep the Cloudflare Tunnel origin pointed only at the MCP endpoint. Do not publish either container port directly to the host.
+The service is deployed as a Docker container on a private homelab management host and attached to an internal Docker network. MCP listens on port 8083; Actuator uses the separate internal management port 8082. Keep the Cloudflare Tunnel origin pointed only at the MCP endpoint. Do not publish either container port directly to the host.
 
 After CI publishes the image, update only this service:
 
 ```bash
-cd ~/myhomelab/pve/util-pve
+cd <private-compose-directory>
 sudo docker compose pull homelab-management-mcp
 sudo docker compose up -d --no-deps --force-recreate --pull never homelab-management-mcp
 sudo docker compose ps homelab-management-mcp

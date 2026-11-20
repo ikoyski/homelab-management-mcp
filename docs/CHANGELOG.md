@@ -4,13 +4,14 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ## 2026-11-21
 
-### Validated
-- Claude Code and Grok independently exercised the deployed Docker inventory across all five configured Portainer environments. The observed baseline was 43 containers (39 running and four intentionally exited) with no collection errors. The exited containers are intentional and are not cleanup/restart recommendations.
-- The live inventory exposes container-side network attachments, while network-side `connectedContainers`, restart count, StartedAt, and uptime remain data-quality gaps in the deployed build.
-
 ### In progress
-- Branch `feat/docker-inventory-enrichment-and-host-filters` adds bounded fixed-GET container detail enrichment, explicit health-check semantics, same-host network membership fallback, and optional exact `hostKey` filters for the container and network list tools.
-- CI, merge, and deployed-client validation for these improvements are pending. The live service must not be described as supporting the new host filters or enriched detail fields until deployment is verified.
+- Branch `feat/docker-container-log-reading` adds a dedicated read-only `get_docker_container_logs` tool. It resolves one exact configured host and discovered container name, defaults to 100 log lines (maximum 200), caps response bytes at 256 KiB, requests stdout/stderr with timestamps and `follow=false`, decodes Docker multiplexed and TTY output, and applies best-effort common-credential redaction. The tool is not merged or deployed; CI and authenticated client validation are pending.
+
+### Merged and deployed
+- PR #29 merged the bounded container inspect enrichment, explicit health-check semantics, same-host network membership fallback, and optional exact `hostKey` filters for container and network list tools. The user confirmed the build succeeded and deployed the updated image.
+
+### Validated
+- Claude Code, Grok, and Gemini exercised the deployed Docker inventory across all five configured Portainer environments. Gemini validated both host-scoped filters against global inventory parity: 43 containers and 23 networks. Four exited containers are intentional and are not cleanup/restart recommendations.
 ## 2026-11-20
 
 ### Validated

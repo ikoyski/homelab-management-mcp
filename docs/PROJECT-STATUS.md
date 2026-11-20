@@ -34,7 +34,7 @@ The deployed service provides these read-only tools:
 
 Completed work includes Proxmox node/guest/storage inventory, storage capacity metrics, QEMU guest filesystem metrics through the Guest Agent, safe failure diagnostics, stable response semantics, and partial-failure handling.
 
-The latest live validation confirmed all five tools working and the combined inventory returning no errors, including all six guests. Claude Code and Grok successfully queried the deployed Homelab MCP on 2026-11-19. Gemini successfully queried it on 2026-11-20 and returned a detailed report covering the Proxmox node, all six guests, and storage pools. Claude Code completed Webtools OAuth authorization, discovered/used the Proxmox tools, and produced a natural-language report from live inventory; Grok returned live node, guest, and storage details. These results validate the observed Release 1 client paths; they do not imply Docker inventory has been validated.
+The latest live validation confirmed all five tools working and the combined inventory returning no errors, including all six guests. Claude Code and Grok successfully queried the deployed Homelab MCP on 2026-11-19. Gemini successfully queried it on 2026-11-20 and returned a detailed report covering the Proxmox node, all six guests, and storage pools. Claude Code completed Webtools OAuth authorization, discovered/used the Proxmox tools, and produced a natural-language report from live inventory; Grok returned live node, guest, and storage details. These statements describe the Release 1 validation at that time; Docker inventory was validated separately during Release 2.
 
 Important metric semantics:
 
@@ -57,7 +57,7 @@ The deployed MCP tools are:
 - `list_docker_containers` — optional exact `hostKey` filter; omitted means all five hosts
 - `list_docker_networks` — optional exact `hostKey` filter; omitted means all five hosts
 - `get_docker_inventory` — combined all-host inventory
-- `get_docker_container_logs` — bounded recent stdout/stderr logs for one exact container on one configured host (deployed; live tool validation pending)
+- `get_docker_container_logs` — bounded recent stdout/stderr logs for one exact container on one configured host (deployed and live-validated through Claude, Gemini, and Grok)
 
 Internal inventory models must be independent of Portainer response DTOs. Environment IDs are discovered at runtime by the Portainer adapter and matched against the private server-side allowlist. One unavailable Agent must not suppress results from the other environments.
 

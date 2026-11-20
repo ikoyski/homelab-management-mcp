@@ -22,8 +22,8 @@ Notable project changes are recorded here in reverse chronological order. This i
 - Claude Code successfully completed Webtools OAuth authorization, connected to the deployed Homelab Management MCP, discovered and used the Proxmox inventory tools, and generated a natural-language report from live inventory data.
 - Grok successfully connected to the deployed Homelab MCP and queried live Proxmox inventory, returning node, guest, and storage details. This validates the observed Grok MCP/tool-execution path for Release 1 only; Docker inventory was not tested.
 - Gemini successfully connected to the deployed Homelab MCP and returned a detailed live Proxmox inventory report covering the node, all six guests, and storage pools. This validates the observed Gemini MCP/tool-execution path for Release 1 only; Docker inventory was not tested.
-- Upgraded Portainer Server on `util-pve` and all four remote Portainer Agents (`dev-pve`, `earn-pve`, `media-pve`, `ncloud-pve`) to Portainer CE 2.45.4. All five environments reconnected and were confirmed Up/reporting resources.
-- Docker Engine versions observed during the Portainer upgrade validation: 28.4.0 on local `util-pve`; 29.1.3 on the four remote Agent-managed environments.
+- Upgraded the Portainer Server and its Agent-managed Docker environments to a compatible Portainer CE release. All configured environments reconnected and reported resources; deployment-specific environment names are kept in private configuration.
+- Docker Engine information was returned successfully for both the local Engine and Agent-managed Engines. Per-host versions are omitted from this public changelog.
 
 ### Architecture decision
 - Accepted ADR-0003: keep the MCP as a modular monolith with distinct inbound MCP, Proxmox infrastructure, Portainer infrastructure, and application-owned inventory/domain modules. The separate Portainer Proxy deployment approach was abandoned; PR #5 was closed unmerged.

@@ -12,7 +12,7 @@ The initial configured Docker environment allowlist is:
 
 | Portainer environment | Proxmox guest | Connection |
 |---|---:|---|
-| **util-pve (local)** | VM 101 | Portainer Server local Docker endpoint |
+| **util-pve** | VM 101 | Portainer Server local Docker endpoint |
 | **dev-pve** | VM 107 | Portainer Agent |
 | **earn-pve** | VM 105 | Portainer Agent |
 | **media-pve** | VM 106 | Portainer Agent |

@@ -21,10 +21,10 @@ Proxmox infrastructure adapter          Portainer infrastructure adapter
 Proxmox VE API                          Portainer Server API
                                           |
                                           +-- local Docker Engine
-                                          +-- Agent --> Docker Engine (dev-pve)
-                                          +-- Agent --> Docker Engine (earn-pve)
-                                          +-- Agent --> Docker Engine (media-pve)
-                                          '-- Agent --> Docker Engine (ncloud-pve)
+                                          +-- Agent --> Docker Engine (remote environment A)
+                                          +-- Agent --> Docker Engine (remote environment B)
+                                          +-- Agent --> Docker Engine (remote environment C)
+                                          '-- Agent --> Docker Engine (remote environment N)
 ```
 
 ## Module responsibilities
@@ -50,7 +50,7 @@ Proxmox VE API                          Portainer Server API
 
 The Portainer adapter exposes only fixed methods for endpoint discovery, Docker info, container listing, and network listing. Each upstream request is a code-defined GET. Do not add arbitrary URL/path/query forwarding, caller-provided endpoint IDs, generic HTTP methods, or write operations.
 
-The adapter resolves endpoint IDs dynamically from the Portainer endpoint list and matches exact endpoint names to the configured allowlist. The allowlist is exactly `util-pve`, `dev-pve`, `earn-pve`, `media-pve`, and `ncloud-pve`; `shared-pve` is excluded. Duplicate names are ambiguous, invalid IDs are rejected, and missing environments are reported without selecting another endpoint.
+The adapter resolves endpoint IDs dynamically from the Portainer endpoint list and matches exact endpoint names to the configured allowlist supplied by the private Config Server. The public source does not hardcode real host names, guest identifiers, or environment mappings. Duplicate names are ambiguous, invalid IDs are rejected, and unlisted environments are not queried.
 
 Portainer credentials are supplied only through private runtime configuration and are never available to MCP tool handlers. Use the runtime JVM truststore for the self-signed certificate while preserving normal certificate-chain and hostname/IP validation. Apply bounded connect/read timeouts and response-size limits. Never log API keys, authorization headers, response bodies, or sensitive Docker metadata.
 

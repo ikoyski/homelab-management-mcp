@@ -41,6 +41,11 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 - Preserve TLS certificate and hostname/IP verification to both Proxmox and Portainer. Trust the self-signed certificates correctly; never use trust-all TLS or insecure HTTP. Keep separate HTTP clients, credentials, properties, DTOs, and error mapping for each integration.
 - Isolate per-environment failures. One unavailable Agent must not suppress results from other environments.
 - Return only allowlisted host/container/network fields. Never return environment variables, secrets, labels, commands, mounts, logs, raw inspect payloads, or arbitrary metadata.
+- Container detail enrichment must use only the fixed read-only Docker inspect GET operation. Extract only restart count, StartedAt/running state, and structured health status; never serialize or log the raw inspect response.
+- Bound concurrent container inspections (maximum four per inventory collection) and isolate per-container detail failures. Preserve the base list result and mark the affected host partial when enrichment is incomplete.
+- Derive missing network connected-container names only from container-side network attachments on the same host. Never join memberships across Docker hosts.
+- `list_docker_containers` and `list_docker_networks` accept an optional exact `hostKey` from the configured allowlist. Reject every unknown host key before making Portainer requests; never accept endpoint IDs or API paths.
+- The Portainer API key inherits its Portainer user's role. Fixed GET-only adapter methods do not reduce the upstream power of an administrator API key; protect it as a high-impact credential.
 - No Docker write operations, container exec, Docker socket mount, or direct remote Docker TCP access in Release 2.
 
 ## Implementation expectations

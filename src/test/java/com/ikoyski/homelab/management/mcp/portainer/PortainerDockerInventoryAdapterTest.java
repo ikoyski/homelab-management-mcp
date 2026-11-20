@@ -24,7 +24,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 class PortainerDockerInventoryAdapterTest {
     private static final List<String> HOSTS =
-            List.of("util-pve", "dev-pve", "earn-pve", "media-pve", "ncloud-pve");
+            List.of("docker-host-a", "docker-host-b", "docker-host-c", "docker-host-d", "docker-host-e");
     private static final String CONTAINER_ID =
             "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
     private final JsonMapper mapper = JsonMapper.builder().build();
@@ -33,7 +33,7 @@ class PortainerDockerInventoryAdapterTest {
     void enrichesAllowlistedFieldsAndDerivesNetworkMembershipWithoutExposingInspectPayload() throws Exception {
         PortainerApiClient client = mock(PortainerApiClient.class);
         PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
-        when(resolver.resolveAll()).thenReturn(resolutions("util-pve", 7));
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
         when(client.getDockerInfo(7)).thenReturn(mapper.readTree("""
                 {"ServerVersion":"28.4.0","OperatingSystem":"Docker Engine","SecurityOptions":["sensitive"]}
                 """));
@@ -83,7 +83,7 @@ class PortainerDockerInventoryAdapterTest {
 
         assertThat(result.status()).isEqualTo("partial");
         assertThat(result.hosts()).hasSize(5);
-        assertThat(result.hosts().get(0).hostKey()).isEqualTo("util-pve");
+        assertThat(result.hosts().get(0).hostKey()).isEqualTo("docker-host-a");
         assertThat(result.hosts().get(0).dockerEngineVersion()).isEqualTo("28.4.0");
         assertThat(result.containers()).hasSize(1);
         assertThat(result.containers().get(0).name()).isEqualTo("sample");
@@ -103,9 +103,9 @@ class PortainerDockerInventoryAdapterTest {
     void filtersCollectionToOneConfiguredHostAndMarksMissingHealthcheckExplicitly() throws Exception {
         PortainerApiClient client = mock(PortainerApiClient.class);
         PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
-        when(resolver.resolveAll()).thenReturn(resolutions("dev-pve", 8));
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-b", 8));
         when(client.getDockerInfo(8)).thenReturn(mapper.readTree("""
-                {"ServerVersion":"29.1.3","OperatingSystem":"Debian GNU/Linux 12"}
+                {"ServerVersion":"29.1.3","OperatingSystem":"Linux"}
                 """));
         when(client.listContainers(8)).thenReturn(mapper.readTree("""
                 [{
@@ -115,7 +115,7 @@ class PortainerDockerInventoryAdapterTest {
                   "State":"running",
                   "Status":"Up 2 hours",
                   "Created":1760000000,
-                  "NetworkSettings":{"Networks":{"mydev_default":{}}},
+                  "NetworkSettings":{"Networks":{"project_default":{}}},
                   "Ports":[]
                 }]
                 """));
@@ -126,15 +126,15 @@ class PortainerDockerInventoryAdapterTest {
                 }
                 """));
         when(client.listNetworks(8)).thenReturn(mapper.readTree("""
-                [{"Id":"network123","Name":"mydev_default","Driver":"bridge","Scope":"local","Containers":{}}]
+                [{"Id":"network123","Name":"project_default","Driver":"bridge","Scope":"local","Containers":{}}]
                 """));
 
-        DockerInventory result = adapter(client, resolver).collect("dev-pve");
+        DockerInventory result = adapter(client, resolver).collect("docker-host-b");
 
         assertThat(result.status()).isEqualTo("ok");
-        assertThat(result.hosts()).singleElement().extracting(host -> host.hostKey()).isEqualTo("dev-pve");
+        assertThat(result.hosts()).singleElement().extracting(host -> host.hostKey()).isEqualTo("docker-host-b");
         assertThat(result.containers()).singleElement().satisfies(container -> {
-            assertThat(container.hostKey()).isEqualTo("dev-pve");
+            assertThat(container.hostKey()).isEqualTo("docker-host-b");
             assertThat(container.health()).isEqualTo("not_configured");
             assertThat(container.restartCount()).isZero();
             assertThat(container.uptimeSeconds()).isPositive();
@@ -150,7 +150,7 @@ class PortainerDockerInventoryAdapterTest {
         PortainerApiClient client = mock(PortainerApiClient.class);
         PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
 
-        assertThatThrownBy(() -> adapter(client, resolver).collect("shared-pve"))
+        assertThatThrownBy(() -> adapter(client, resolver).collect("unconfigured-host"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("configured Docker host");
         org.mockito.Mockito.verifyNoInteractions(client, resolver);
@@ -160,7 +160,7 @@ class PortainerDockerInventoryAdapterTest {
     void keepsSummaryContainerWhenInspectEnrichmentFailsAndReportsPartialStatus() throws Exception {
         PortainerApiClient client = mock(PortainerApiClient.class);
         PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
-        when(resolver.resolveAll()).thenReturn(resolutions("util-pve", 7));
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
         when(client.getDockerInfo(7)).thenReturn(mapper.readTree("{\"ServerVersion\":\"28.4.0\"}"));
         when(client.listContainers(7)).thenReturn(mapper.readTree("""
                 [{
@@ -178,7 +178,7 @@ class PortainerDockerInventoryAdapterTest {
                 .thenThrow(new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE));
         when(client.listNetworks(7)).thenReturn(mapper.readTree("[]"));
 
-        DockerInventory result = adapter(client, resolver).collect("util-pve");
+        DockerInventory result = adapter(client, resolver).collect("docker-host-a");
 
         assertThat(result.status()).isEqualTo("partial");
         assertThat(result.hosts()).singleElement()
@@ -190,14 +190,14 @@ class PortainerDockerInventoryAdapterTest {
             assertThat(container.startedAt()).isNull();
             assertThat(container.uptimeSeconds()).isNull();
         });
-        assertThat(result.errors()).contains("util-pve: container_details_unavailable");
+        assertThat(result.errors()).contains("docker-host-a: container_details_unavailable");
     }
 
     @Test
     void isolatesContainerCollectionFailureToOneEnvironment() throws Exception {
         PortainerApiClient client = mock(PortainerApiClient.class);
         PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
-        when(resolver.resolveAll()).thenReturn(resolutions("util-pve", 7, "dev-pve", 8));
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7, "docker-host-b", 8));
         when(client.getDockerInfo(7)).thenReturn(mapper.readTree("{\"ServerVersion\":\"28.4.0\"}"));
         when(client.getDockerInfo(8)).thenReturn(mapper.readTree("{\"ServerVersion\":\"29.1.3\"}"));
         when(client.listContainers(7)).thenThrow(new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE));
@@ -208,11 +208,11 @@ class PortainerDockerInventoryAdapterTest {
         DockerInventory result = adapter(client, resolver).collect();
 
         assertThat(result.status()).isEqualTo("partial");
-        assertThat(result.hosts()).filteredOn(host -> "util-pve".equals(host.hostKey()))
+        assertThat(result.hosts()).filteredOn(host -> "docker-host-a".equals(host.hostKey()))
                 .singleElement().extracting(host -> host.status()).isEqualTo("partial");
-        assertThat(result.hosts()).filteredOn(host -> "dev-pve".equals(host.hostKey()))
+        assertThat(result.hosts()).filteredOn(host -> "docker-host-b".equals(host.hostKey()))
                 .singleElement().extracting(host -> host.status()).isEqualTo("ok");
-        assertThat(result.errors()).anyMatch(error -> error.startsWith("util-pve: containers:"));
+        assertThat(result.errors()).anyMatch(error -> error.startsWith("docker-host-a: containers:"));
     }
 
     private PortainerDockerInventoryAdapter adapter(PortainerApiClient client,

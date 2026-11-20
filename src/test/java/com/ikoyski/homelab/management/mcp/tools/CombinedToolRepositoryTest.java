@@ -37,7 +37,7 @@ class CombinedToolRepositoryTest {
             "get_docker_container_logs");
 
     @Test
-    void modernAdapterAdvertisesTheSharedNineToolCatalogWhenPortainerIsConfigured() {
+    void modernAdapterAdvertisesTheSharedTenToolCatalogWhenPortainerIsConfigured() {
         HomelabToolCatalog catalog = configuredCatalog();
         CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 

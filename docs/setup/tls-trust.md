@@ -1,6 +1,6 @@
 # TLS certificates and Java truststore
 
-The MCP uses HTTPS with normal certificate-chain and hostname/IP verification for Proxmox and Portainer. Private certificates must be trusted by Java. Never work around trust errors by disabling verification.
+The MCP uses HTTPS with normal certificate-chain and hostname/IP verification for Proxmox and Portainer. The homelab deployment uses a private internal root CA (self-signed) to issue service certificates; the Portainer server certificate must include the address used by the MCP in its SAN. Private certificates must be trusted by Java. Never work around trust errors by disabling verification.
 
 ## 1. Use a private CA
 

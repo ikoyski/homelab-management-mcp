@@ -65,7 +65,7 @@ class CombinedToolRepositoryTest {
         assertEquals("object", containerSchema.get("type"));
         assertEquals(false, containerSchema.get("additionalProperties"));
         assertEquals("string", hostKeySchema.get("type"));
-        assertTrue(((String) hostKeySchema.get("description")).contains("configured host key"));
+        assertTrue(((String) hostKeySchema.get("description")).contains("configured Docker host key"));
         assertEquals(containerSchema.get("properties"), networkSchema.get("properties"));
 
         Map<String, Object> inventorySchema = modernAdapter.find(null, "get_docker_inventory").inputSchema();

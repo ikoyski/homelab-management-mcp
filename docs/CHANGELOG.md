@@ -2,6 +2,15 @@
 
 Notable project changes are recorded here in reverse chronological order. This is a concise project-level history, not a replacement for Git commit history or release notes.
 
+## 2026-11-21
+
+### Validated
+- Claude Code and Grok independently exercised the deployed Docker inventory across all five configured Portainer environments. The observed baseline was 43 containers (39 running and four intentionally exited) with no collection errors. The exited containers are intentional and are not cleanup/restart recommendations.
+- The live inventory exposes container-side network attachments, while network-side `connectedContainers`, restart count, StartedAt, and uptime remain data-quality gaps in the deployed build.
+
+### In progress
+- Branch `feat/docker-inventory-enrichment-and-host-filters` adds bounded fixed-GET container detail enrichment, explicit health-check semantics, same-host network membership fallback, and optional exact `hostKey` filters for the container and network list tools.
+- CI, merge, and deployed-client validation for these improvements are pending. The live service must not be described as supporting the new host filters or enriched detail fields until deployment is verified.
 ## 2026-11-20
 
 ### Validated

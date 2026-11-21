@@ -2,25 +2,25 @@
 
 > **Purpose:** Canonical continuity record for maintainers and AI coding assistants. Update this file whenever a milestone, architecture decision, validation result, or deployment state changes.
 >
-> **Last updated:** 2026-11-21 (Asia/Manila)
+> **Last updated:** 2026-11-22 (Asia/Manila)
 > **Repository:** `ikoyski/homelab-management-mcp`
-> **Current focus:** Release 2 — bounded read-only Docker container diagnostics
+> **Current focus:** Post-Release 2 validation, documentation, and maintenance
 
 ## Current project state
 
 | Area | Status | Notes |
 |---|---|---|
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; authenticated live inventory has been exercised by Claude Code, Grok, and Gemini. |
-| Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox inventory, and Docker inventory across all five configured hosts were successfully exercised. |
-| Grok client integration | Validated | Proxmox and Docker inventory tools were independently exercised; Docker results covered all five hosts and the same 43-container baseline. |
-| Gemini client integration | Validated | Gemini completed Docker and Proxmox inventory, and validated container/network hostKey filtering across all five configured hosts against global inventory parity. |
+| Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox inventory, Docker inventory, targeted logs, and standalone HTML report generation were exercised. |
+| Grok client integration | Validated | Proxmox and Docker inventory, targeted logs, and standalone HTML report generation were exercised. |
+| Gemini client integration | Validated | Gemini completed Proxmox/Docker inventory, hostKey filter parity checks, targeted logs, and standalone HTML report generation. |
 | Release 2 — Docker inventory | Implemented, merged, deployed, and live-validated | Claude Code, Grok, and Gemini exercised the five configured hosts. Gemini validated both host-scoped filters against global inventory: 43 containers and 23 networks. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
 | Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the Portainer certificate is installed in the MCP runtime. Environment identities are supplied by private configuration; endpoint IDs are discovered dynamically. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture; the Portainer adapter lives inside this MCP. |
 | Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
 | Bounded container log retrieval | Implemented, merged, deployed, and live-validated | `get_docker_container_logs` resolves one exact configured host and discovered container name, defaults tail to 100 (maximum 200), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. Live retrieval was confirmed through Claude, Gemini, and Grok. |
-| Natural-language status/reporting improvements | Deferred | Revisit after bounded container log retrieval is validated. |
+| Cross-client AI reporting workflow | Validated as client-side workflow | Claude, Gemini, and Grok each completed an operator-directed inventory-first assessment, targeted diagnostics, and standalone HTML report. Report generation is not an MCP server feature. |
 
 ## Release 1 — completed
 
@@ -114,6 +114,24 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 
 Keep OAuth authorization, MCP initialization/tool discovery, and authenticated tool execution as distinct validation stages for future clients; a client registration alone is not proof of end-to-end operation. Do not infer compatibility for Gemini or other untested clients.
 
+
+## Cross-client AI operating and reporting guidance — documented
+
+On 2026-11-22, the inventory-first diagnostics and standalone HTML-report workflow was exercised successfully through Claude, Gemini, and Grok. Each client retrieved Proxmox and Docker inventory, performed targeted diagnostics rather than indiscriminate log collection, and generated a standalone HTML report when prompted.
+
+The repository now contains [AI-CLIENT-GUIDANCE.md](../AI-CLIENT-GUIDANCE.md), a provider-neutral operating policy intended to be explicitly loaded by all AI clients. [CLAUDE.md](../CLAUDE.md) points Claude Code to the shared guide, and [GEMINI.md](../GEMINI.md) provides Gemini project instructions. Grok and clients without repository-native instruction discovery must be given the shared guide explicitly; do not assume automatic loading.
+
+The shared policy covers:
+- Privacy and best-effort secondary redaction of log content; it explicitly does not treat AI-side redaction as a security boundary.
+- Inventory-first analysis, targeted bounded log retrieval, and reconciliation of all totals before reporting.
+- Conservative interpretation of exited containers, exit codes, health-check states, restart counts, historical timestamps, and memory metrics.
+- Clear separation of confirmed observations, warnings, hypotheses, and recommendations.
+- Optional, offline, self-contained HTML reports with escaped untrusted content, no external dependencies, no secrets, and no infrastructure-action controls.
+- The MCP remains read-only. Report recommendations never authorize remediation.
+
+Report generation is performed by the AI client on operator request; no report-generation endpoint, MCP tool, or server-side reporting feature was added. The exercise validates the observed client workflow, not a guarantee that every future session will follow the guide automatically.
+
+
 ## Decisions and constraints
 
 - Authenticate MCP requests through the existing Webtools OAuth boundary and central-user allowlist.
@@ -123,7 +141,7 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 - Keep source configuration free of environment-specific IP addresses and ports.
 - Keep homelab and public/test configuration shapes similar where practical; explain any necessary environment-specific differences.
 - Do not deploy, upgrade infrastructure, or change runtime configuration without explicit operator approval.
-- Natural-language status thresholds, historical change detection, and concise/detailed reporting are follow-up work after Docker support.
+- Historical change detection and automated alerting remain out of scope. AI-generated reports are optional, client-side artifacts governed by `AI-CLIENT-GUIDANCE.md`; they are not an MCP feature.
 
 ## Recent milestones
 
@@ -139,6 +157,7 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 - 2026-11-21 — Claude Code and Grok both validated the deployed Docker inventory across all five hosts; the observed baseline was 43 containers with four intentionally exited states.
 - 2026-11-21 — PR #29 merged and the updated inventory image deployed; user confirmed successful build. Gemini independently validated all five container and network hostKey filters against global inventory.
 - 2026-11-21 — PR #30 merged and deployed: added fixed GET-only Docker container log retrieval for one exact host/container, 100-line default / 200-line maximum, 256 KiB response ceiling, timestamps, no follow/streaming, Docker stream decoding, and best-effort credential redaction. Live log retrieval has been validated through Claude, Gemini, and Grok.
+- 2026-11-22 — Claude, Gemini, and Grok each completed an operator-directed inventory-first diagnostics and standalone HTML-report exercise. Added provider-neutral `AI-CLIENT-GUIDANCE.md`, Claude Code reference, and Gemini project instructions. No MCP implementation or reporting endpoint was added.
 
 ## Recommended next work
 
@@ -154,8 +173,10 @@ Read these files before proposing or changing implementation:
 
 1. `docs/PROJECT-STATUS.md` — current status, open prerequisites, constraints, and next steps.
 2. `CLAUDE.md` — mandatory engineering and security rules.
-3. `README.md` — public project overview and verified release status.
-4. `docs/architecture/release-2-docker-inventory.md` — Release 2 detailed design.
-5. Relevant records under `docs/architecture/decisions/` — rationale behind accepted decisions.
+3. `AI-CLIENT-GUIDANCE.md` — shared provider-neutral AI operating, privacy, diagnostics, and reporting policy.
+4. `GEMINI.md` — Gemini project instructions (when using Gemini).
+5. `README.md` — public project overview and verified release status.
+6. `docs/architecture/release-2-docker-inventory.md` — Release 2 detailed design.
+7. Relevant records under `docs/architecture/decisions/` — rationale behind accepted decisions.
 
 Treat this repository as the project source of truth. Conversation history is supplementary and may be incomplete. Verify current code, merged PRs, CI, and actual deployment state before claiming anything changed or passed.

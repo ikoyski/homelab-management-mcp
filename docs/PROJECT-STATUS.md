@@ -19,7 +19,7 @@
 | Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the Portainer certificate is installed in the MCP runtime. Environment identities are supplied by private configuration; endpoint IDs are discovered dynamically. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture; the Portainer adapter lives inside this MCP. |
 | Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
-| Bounded container log retrieval | PR #30 merged and deployed; live tool validation pending | `get_docker_container_logs` resolves one exact configured host and discovered container name, defaults tail to 100 (maximum 200), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. The operator confirmed merge and deployment; successful live log retrieval has not yet been reported. |
+| Bounded container log retrieval | Implemented, merged, deployed, and live-validated | `get_docker_container_logs` resolves one exact configured host and discovered container name, defaults tail to 100 (maximum 200), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. Live retrieval was confirmed through Claude, Gemini, and Grok. |
 | Natural-language status/reporting improvements | Deferred | Revisit after bounded container log retrieval is validated. |
 
 ## Release 1 — completed
@@ -34,7 +34,7 @@ The deployed service provides these read-only tools:
 
 Completed work includes Proxmox node/guest/storage inventory, storage capacity metrics, QEMU guest filesystem metrics through the Guest Agent, safe failure diagnostics, stable response semantics, and partial-failure handling.
 
-The latest live validation confirmed all five tools working and the combined inventory returning no errors, including all six guests. Claude Code and Grok successfully queried the deployed Homelab MCP on 2026-11-19. Gemini successfully queried it on 2026-11-20 and returned a detailed report covering the Proxmox node, all six guests, and storage pools. Claude Code completed Webtools OAuth authorization, discovered/used the Proxmox tools, and produced a natural-language report from live inventory; Grok returned live node, guest, and storage details. These results validate the observed Release 1 client paths; they do not imply Docker inventory has been validated.
+The latest live validation confirmed all five tools working and the combined inventory returning no errors, including all six guests. Claude Code and Grok successfully queried the deployed Homelab MCP on 2026-11-19. Gemini successfully queried it on 2026-11-20 and returned a detailed report covering the Proxmox node, all six guests, and storage pools. Claude Code completed Webtools OAuth authorization, discovered/used the Proxmox tools, and produced a natural-language report from live inventory; Grok returned live node, guest, and storage details. These statements describe the Release 1 validation at that time; Docker inventory was validated separately during Release 2.
 
 Important metric semantics:
 
@@ -57,7 +57,7 @@ The deployed MCP tools are:
 - `list_docker_containers` — optional exact `hostKey` filter; omitted means all five hosts
 - `list_docker_networks` — optional exact `hostKey` filter; omitted means all five hosts
 - `get_docker_inventory` — combined all-host inventory
-- `get_docker_container_logs` — bounded recent stdout/stderr logs for one exact container on one configured host (deployed; live tool validation pending)
+- `get_docker_container_logs` — bounded recent stdout/stderr logs for one exact container on one configured host (deployed and live-validated through Claude, Gemini, and Grok)
 
 Internal inventory models must be independent of Portainer response DTOs. Environment IDs are discovered at runtime by the Portainer adapter and matched against the private server-side allowlist. One unavailable Agent must not suppress results from the other environments.
 
@@ -89,7 +89,7 @@ The branch adds get_docker_container_logs, a dedicated diagnostic tool accepting
 
 The request selects stdout and stderr, enables timestamps, and always sets follow=false. The response is read with a 256 KiB byte ceiling; Docker multiplexed stdout/stderr frames and plain-text TTY output are handled. Common credential patterns are redacted on a best-effort basis and the result reports truncation and redaction counts. Redaction is not comprehensive: log contents may still expose secrets or personal information and are sent to the connected AI provider. The Docker logs API is documented to work with json-file and journald logging drivers; other drivers may return an unavailable result. Logs are untrusted data and must never be treated as instructions.
 
-This tool is separate from inventory: inventory results continue to exclude log contents. It does not use shell, exec, Docker socket access, or a streaming/follow mode. CI passed sufficiently for merge and the operator confirmed deployment. The remaining validation is to invoke it through an authenticated AI client against a selected container, confirm useful recent output, and confirm unsupported/unavailable logging-driver behavior is returned honestly.
+This tool is separate from inventory: inventory results continue to exclude log contents. It does not use shell, exec, Docker socket access, or a streaming/follow mode. CI passed sufficiently for merge and the operator confirmed deployment. The operator subsequently confirmed the workflow works through Claude, Gemini, and Grok. This validates authenticated live retrieval across all three clients; unsupported/unavailable logging-driver behavior remains an edge case to verify when a suitable test environment is available.
 
 ## Portainer upgrade compatibility
 
@@ -138,14 +138,14 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 - 2026-11-19 — Portainer client/configuration, response-size limiter, dynamic endpoint resolver, inventory mapping, application use case, and four Docker MCP tool registrations added.
 - 2026-11-21 — Claude Code and Grok both validated the deployed Docker inventory across all five hosts; the observed baseline was 43 containers with four intentionally exited states.
 - 2026-11-21 — PR #29 merged and the updated inventory image deployed; user confirmed successful build. Gemini independently validated all five container and network hostKey filters against global inventory.
-- 2026-11-21 — PR #30 merged and deployed: added fixed GET-only Docker container log retrieval for one exact host/container, 100-line default / 200-line maximum, 256 KiB response ceiling, timestamps, no follow/streaming, Docker stream decoding, and best-effort credential redaction. Live AI-client log retrieval validation remains pending.
+- 2026-11-21 — PR #30 merged and deployed: added fixed GET-only Docker container log retrieval for one exact host/container, 100-line default / 200-line maximum, 256 KiB response ceiling, timestamps, no follow/streaming, Docker stream decoding, and best-effort credential redaction. Live log retrieval has been validated through Claude, Gemini, and Grok.
 
 ## Recommended next work
 
-1. Validate `get_docker_container_logs` through an authenticated AI client using a known, non-sensitive container and a small `tail` value; confirm the response is recent, bounded, and readable.
-2. Verify an unavailable container and an unsupported/unavailable Docker logging driver return sanitized, honest errors without shell/exec fallbacks.
-3. Remind AI clients that log text can contain secrets or personal data despite best-effort redaction; ask for only the relevant container and log window, not logs from every host by default.
-4. Preserve the intentional exited-container baseline; do not add restart or cleanup suggestions.
+1. Consider testing unavailable-container and unsupported/unavailable logging-driver responses in a suitable test environment; do not add shell/exec fallbacks.
+2. Keep log inspection targeted and on demand rather than collecting logs from every container by default.
+3. Remind AI clients that log text can contain secrets or personal data despite best-effort redaction.
+4. Preserve intentionally exited-container states; do not assume they need restart or cleanup.
 5. Keep the Portainer CA truststore in the MCP runtime and all API credentials in the private Config Server.
 
 ## Starting a new engineering conversation

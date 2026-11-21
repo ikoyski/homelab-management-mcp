@@ -3,6 +3,9 @@
 ## Mission
 Build a private-homelab discovery and management MCP server. Start with read-only discovery. The repository is public, so assume every committed byte is public.
 
+## Setup documentation
+For end-to-end infrastructure setup, read [docs/setup/README.md](docs/setup/README.md) and follow its linked guides for Proxmox API identity/token setup, Docker/Portainer environments, private CA and Java truststore provisioning, private Config Server configuration, deployment, and authenticated AI-client validation. Keep all actual environment values in private configuration; public docs use placeholders.
+
 ## Non-negotiable security rules
 - Never commit credentials, API tokens, SSH keys, encryption keys, real secrets, or sensitive infrastructure configuration.
 - Do not print or return environment-variable values or secret-bearing configuration.

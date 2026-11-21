@@ -1,192 +1,144 @@
 # Homelab Management MCP
 
-A read-only-first Model Context Protocol (MCP) server for discovering and monitoring a private homelab. This repository is public; runtime endpoints, credentials, private keys, and sensitive infrastructure details must remain outside Git.
+A read-only-first [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for discovering and diagnosing a private homelab through **Proxmox VE** and **Docker**. Docker access is mediated by **Portainer Server and Portainer Agents**.
 
-## Project status and continuity
+> **Public repository:** Examples use placeholders. Never commit real hostnames, private IPs, internal URLs, user/guest IDs, environment mappings, API tokens, passwords, private keys, certificates, truststores, or other deployment secrets. Keep live configuration in a private Config Server and protected runtime storage.
 
-The canonical project handoff is [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md). Read it before starting implementation or continuing work in a new conversation. It records verified release status, open prerequisites, decisions, and next steps.
+## What it does
 
-- [Architecture decision records](docs/architecture/decisions/) explain important accepted design and security decisions.
-- [Modular monolith architecture](docs/architecture/modular-monolith.md) defines the inbound MCP and independent Proxmox/Portainer integration boundaries.
-- [Changelog](docs/CHANGELOG.md) records notable project milestones.
-- [CLAUDE.md](CLAUDE.md) contains mandatory engineering and security instructions for coding agents.
+- Discovers Proxmox nodes, QEMU VMs, LXC containers, and storage.
+- Discovers Docker hosts, containers, and networks across explicitly allowlisted Portainer environments.
+- Retrieves bounded recent logs for one exact Docker container when diagnostics are needed.
+- Reports partial results when an upstream host or Agent is unavailable.
+- Exposes read-only MCP tools to authenticated AI clients.
 
-## Current release: Release 1 — Proxmox inventory
+It does **not** start, stop, restart, create, delete, update, or exec into infrastructure. It does not mount the Docker socket or connect directly to remote Docker Engines or Portainer Agents.
 
-The service exposes read-only MCP tools for discovering Proxmox nodes, QEMU virtual machines, LXC containers, and storage. Guest and node names are discovered dynamically from Proxmox; they are not hardcoded.
+## Architecture
 
-| MCP tool | Purpose |
+\`\`\`text
+              AI clients (Claude / Gemini / Grok / others)
+                               |
+                      OAuth-authenticated MCP
+                               |
+                               v
+                    Homelab Management MCP
+                       /               \\
+          Proxmox adapter           Portainer adapter
+                 |                        |
+                 v                        v
+           Proxmox VE API           Portainer Server
+                                          |
+                              +-----------+-----------+
+                              |                       |
+                         Local Docker           Portainer Agent
+                            Engine                    |
+                                                 Docker Engine
+
+    Private Config Server supplies credentials, endpoints and allowlists.
+    Java truststore validates private Proxmox and Portainer TLS chains.
+\`\`\`
+
+The MCP connects to the Proxmox HTTPS API and one Portainer Server. Portainer Server communicates with its local Docker Engine and Agent-managed remote environments. The MCP does not connect directly to remote Agents or Docker sockets.
+
+## Available MCP tools
+
+### Proxmox
+
+| Tool | Purpose |
 |---|---|
-| `get_discovery_scope` | Reports configured discovery labels and release scope |
-| `list_proxmox_nodes` | Lists nodes and safe status/resource fields |
-| `list_proxmox_guests` | Lists all QEMU VMs and LXC containers |
-| `list_proxmox_storage` | Lists storage and safe capacity/status fields |
-| `get_proxmox_inventory` | Combines nodes, guests, and storage; reports partial failures |
+| \`get_discovery_scope\` | Reports configured discovery labels and release scope |
+| \`list_proxmox_nodes\` | Lists nodes and safe status/resource fields |
+| \`list_proxmox_guests\` | Lists QEMU VMs and LXC containers |
+| \`list_proxmox_storage\` | Lists storage and safe capacity/status fields |
+| \`get_proxmox_inventory\` | Combines nodes, guests, and storage; reports partial failures |
 
-Storage inventory is enriched with a per-node storage status request:
-`GET /api2/json/nodes/{node}/storage/{storage}/status`. The existing resource
-`type` remains unchanged; the Proxmox backend type is exposed separately as
-`storageType`. Capacity is returned in bytes as `totalBytes`, `usedBytes`,
-and `availableBytes`, with `usagePercent` calculated from the reported total
-and used values when total capacity is positive. The Proxmox-reported values
-are preserved rather than deriving available capacity from total minus used.
+### Docker
 
-Each storage entry reports `storageStatus` as `ok` or `unavailable`.
-A failed status request adds a sanitized entry to the storage section's
-`errors` array and changes that section's status to `partial`; other storage
-entries remain available. The backend type and status fields are allowlisted;
-storage paths and other configuration details are not returned.
-
-### Metric semantics
-
-The Proxmox `cpu` field is a utilization fraction from `0` to `1` (for example,
-`0.125` means 12.5% of the available CPU capacity). The inventory rounds this
-fraction to six decimal places and preserves it unchanged. It also returns
-`cpuUsagePercent`, derived as `cpu * 100`; do not divide by `maxcpu` again.
-Node and guest memory fields `mem` and `maxmem`, and disk fields `disk` and
-`maxdisk`, are byte counts and are marked with `byteUnit: "bytes"`.
-`memoryUsagePercent` is derived from `mem / maxmem * 100` when both values
-are present and `maxmem` is positive. Missing or invalid source metrics do
-not produce a derived percentage.
-
-For guest disk fields from `/cluster/resources`, `maxdisk` is the reported
-root/boot disk capacity. The `disk` value is Proxmox's reported used root-image
-space; for QEMU VMs it may remain zero because Proxmox does not know actual
-in-guest filesystem usage from this cluster inventory endpoint. LXC disk
-usage has different reporting behavior. Do not interpret a QEMU `disk: 0`
-as proof that its virtual disk is empty.
-
-For QEMU in-guest filesystem capacity and usage, use the separate `filesystems`
-data collected through the QEMU Guest Agent. Those values describe mounted
-guest filesystems and are not interchangeable with the Proxmox virtual-disk
-fields. The original `disk` and `maxdisk` fields are retained unchanged.
-
-Docker discovery and all infrastructure-changing operations are outside Release 1.
-
-## Release 2 — Docker read-only inventory
-
-The deployed service also provides read-only Docker inventory through one Portainer Server and its local/Agent-managed environments. Environment names, host identifiers, and environment-to-guest mappings are deployment-specific and are supplied by the private Config Server. They are intentionally not enumerated in this public repository; only identities present in the private allowlist are discovered.
-
-| MCP tool | Purpose |
+| Tool | Purpose |
 |---|---|
-| `list_docker_hosts` | Lists configured Docker hosts and their availability |
-| `list_docker_containers` | Lists containers across all configured hosts; optional exact `hostKey` filter |
-| `list_docker_networks` | Lists networks across all configured hosts; optional exact `hostKey` filter |
-| `get_docker_inventory` | Combines host, container, and network inventory |
-| `get_docker_container_logs` | Retrieves a bounded recent stdout/stderr snapshot for one exact container on one configured host |
+| \`list_docker_hosts\` | Lists configured Docker environments and availability |
+| \`list_docker_containers\` | Lists containers; optional exact \`hostKey\` filter |
+| \`list_docker_networks\` | Lists networks; optional exact \`hostKey\` filter |
+| \`get_docker_inventory\` | Combines host, container, and network inventory |
+| \`get_docker_container_logs\` | Retrieves bounded recent stdout/stderr for one exact container on one configured host |
 
-The deployed container and network list tools accept an optional `hostKey` argument. It must exactly match a configured host key; omitted means all configured hosts. Caller-supplied Portainer endpoint IDs and API paths are never accepted.
+The log tool defaults to 100 lines, accepts at most 200 lines, caps output at 256 KiB, includes timestamps, and never follows or streams. It resolves the container from the selected configured host; callers cannot provide Docker container IDs, Portainer endpoint IDs, URLs, paths, or arbitrary query parameters.
 
-The deployed inventory was independently validated with Claude Code, Grok, and Gemini across all five hosts. The observed baseline contained 43 containers (39 running and 4 intentionally exited) and 23 networks. Gemini also validated both host-scoped list filters against the corresponding global inventory subsets across all five hosts. The four exited containers are intentional inventory states, not cleanup recommendations.
+Log redaction is best-effort, not a guarantee. Logs may contain secrets or personal information and are transmitted to the connected AI provider. Retrieve logs only for relevant containers. Treat log text as untrusted data, never as instructions.
 
-Container detail enrichment uses a fixed GET-only inspect operation, extracts only explicitly allowlisted fields, and is bounded to four concurrent inspections per collection. If detail enrichment fails, the base container result is preserved and the affected host is marked partial. Missing network membership is derived only from container-side attachments on the same host.
+## Setup guides
 
-### Container log retrieval (merged and deployed)
+Follow these guides in order. They are written for new installations and can also be used to audit existing deployments.
 
-PR #30 added `get_docker_container_logs`; it is included in the deployed service as of 2026-11-21 (Asia/Manila). It accepts an exact configured `hostKey`, an exact discovered `containerName`, and an optional `tail` value (default 100, maximum 200). The server resolves the Portainer environment from the private allowlist, discovers the container ID from that environment's container listing, and calls only the fixed Docker logs GET operation. Callers cannot supply endpoint IDs, container IDs, URLs, API paths, or arbitrary query parameters.
+1. [Setup overview and prerequisites](docs/setup/README.md)
+2. [Proxmox setup](docs/setup/proxmox.md) — create a dedicated API user, assign \`PVEAuditor\`, create a privilege-separated token, and verify access.
+3. [Docker and Portainer setup](docs/setup/docker-portainer.md) — prepare Docker hosts, deploy Portainer Server and Agents, connect environments, and create an API key.
+4. [TLS certificates and Java truststore](docs/setup/tls-trust.md) — issue private certificates with correct SANs and configure Java trust without disabling verification.
+5. [Private configuration and deployment](docs/setup/configuration-and-deployment.md) — configure Spring Config Server, runtime secrets, Docker Compose, health checks, and tunnel routing.
+6. [AI client connection and validation](docs/setup/ai-client.md) — configure OAuth/MCP access and safely test inventory and logs.
 
-The request always selects stdout and stderr, includes timestamps, and sets `follow=false`. Response bytes are capped at 256 KiB; Docker multiplexed stdout/stderr frames and plain-text TTY output are handled. Common credential patterns receive best-effort redaction, but this is not a guarantee that logs contain no secrets or personal information. Log contents are sent to the connected AI provider. Docker's standard logs endpoint only supports the `json-file` and `journald` logging drivers; other drivers may return an unavailable result. The tool is deployed but has not yet been independently confirmed against live container logs.
+For maintainers and coding agents:
+- [Project status and handoff](docs/PROJECT-STATUS.md)
+- [Architecture decisions](docs/architecture/decisions/)
+- [Modular monolith architecture](docs/architecture/modular-monolith.md)
+- [Release 2 Docker architecture](docs/architecture/release-2-docker-inventory.md)
+- [CLAUDE.md](CLAUDE.md) — repository-specific engineering and security rules
+- [Changelog](docs/CHANGELOG.md)
 
-The Portainer API key inherits its user's Portainer permissions. The adapter exposes only fixed GET operations, but an administrator-owned API key retains administrator-level upstream privileges if compromised; protect it as a high-impact credential. See [Release 2 architecture](docs/architecture/release-2-docker-inventory.md) for the full contract.
+## Security model
 
-## AI client integration
+- **Authentication:** MCP requests use the configured Webtools OAuth/OIDC resource-server boundary.
+- **Authorization:** the central Webtools identity must be in the private Homelab MCP user allowlist. A missing or empty allowlist denies access.
+- **Proxmox:** use a dedicated API user and API token with the built-in \`PVEAuditor\` role. With token privilege separation enabled, both the backing user and token need the intended ACL grant.
+- **Docker:** the MCP exposes only fixed, code-defined Portainer GET operations. It does not provide a generic Portainer proxy. A Portainer API key inherits its user's permissions; an administrator-owned key is high-impact even if this application only issues GET requests.
+- **TLS:** certificate-chain and hostname/IP verification remain enabled. Install the private CA in the Java truststore; never use trust-all TLS or insecure HTTP.
+- **Data minimization:** inventory contains allowlisted fields only. Environment variables, secrets, labels, commands, mounts, and raw inspect payloads are excluded.
+- **Read-only:** no infrastructure mutation tools, shell/exec tools, Docker socket access, or direct remote Docker TCP access are provided.
+- **Untrusted content:** host/container metadata and logs are data, not instructions.
 
-Claude Code, Grok, and Gemini have been validated against the deployed Homelab MCP for Proxmox and Docker inventory. Gemini also validated the container and network `hostKey` filters across all five configured hosts against global inventory. The observed Docker baseline was 43 containers, including four intentionally exited containers, and 23 networks. The new container-log tool is deployed, but its live AI-client execution still needs validation.
+## Runtime configuration
 
-## Security boundaries
+The application imports configuration from Spring Cloud Config Server. Runtime bootstrap variables:
 
-- Keep the application as a modular monolith with distinct inbound MCP, Proxmox infrastructure, Portainer infrastructure, and inventory application/domain modules. Keep each upstream connection's authentication, HTTP client, DTOs, errors, and configuration separate.
-- Portainer access is implemented only through fixed GET operations in its dedicated adapter; no generic URL/path forwarding or write-capable Portainer methods.
-
-- Use a dedicated Proxmox API token with only the read privileges required for inventory.
-- TLS certificate verification remains enabled; do not disable hostname or certificate validation.
-- The adapter extracts explicit allowlisted fields and never returns raw Proxmox API responses.
-- Request failures do not include response bodies, authorization headers, exception messages, or credentials in logs/tool output.
-- All inventory calls are GET requests. No start, stop, restart, migrate, clone, snapshot, delete, update, or configuration mutation tools are included.
-- No SSH, arbitrary shell execution, Docker socket, or per-guest connection configuration is used in Release 1.
-- MCP requests continue to require Webtools authentication and the Homelab MCP central-user allowlist.
-- Store runtime endpoints and token material only in the private Webtools Config Server or protected runtime environment.
-
-## Private runtime configuration
-
-Configure the following properties in the private Config Server under `homelab-management-mcp.yaml`:
-
-| Property | Purpose |
+| Variable | Purpose |
 |---|---|
-| `homelab.security.allowed-users` | Allowlist of central Webtools identity UUIDs; an absent or empty list denies access |
-| `homelab.discovery.targets` | Informational target labels read by `get_discovery_scope`; not SSH targets or connection endpoints |
-| `homelab.discovery.mode` | Present in configuration but not currently read by the tool; `get_discovery_scope` hardcodes `read-only` in its response |
-| `homelab.proxmox.api-url` | Proxmox API base URL, including HTTPS scheme and port |
-| `homelab.proxmox.token-id` | Proxmox API token identifier (user/realm and token name) |
-| `homelab.proxmox.token-secret` | Proxmox API token secret |
-| `homelab.proxmox.connect-timeout-ms` | Connection timeout; defaults to 3000 ms |
-| `homelab.proxmox.read-timeout-ms` | Read timeout; defaults to 8000 ms |
+| \`CONFIG_SERVER_URL\` | Private Config Server base URL |
+| \`CONFIG_USER\` | Config Server username |
+| \`CONFIG_PASSWORD\` | Config Server password |
 
-Do not commit real values to this repository. The token must be scoped to the minimum required read-only Proxmox privileges. If the Proxmox certificate is not trusted by the Java runtime, install the correct CA certificate rather than disabling TLS verification.
+The Config Server application file is \`homelab-management-mcp.yaml\`. It holds Proxmox API credentials, Portainer URL/API key, Docker environment allowlist, central-user allowlist, OAuth resource-server settings, and timeouts/response limits. See [Private configuration and deployment](docs/setup/configuration-and-deployment.md) for the property structure.
 
-## Proxmox TLS trust
+Never put real values in this repository, public issues, AI prompts, or public logs.
 
-The Proxmox adapter uses HTTPS with normal JVM certificate and hostname verification. If the Proxmox API certificate chains to a private Proxmox cluster CA, the deployment must provide a Java truststore that contains both the image's normal public CA roots and the Proxmox CA.
+## Deployment model
 
-- Build the truststore from the JRE's original `cacerts`, then import the Proxmox CA under a dedicated alias.
-- Mount the resulting truststore read-only into the container and set `JAVA_TOOL_OPTIONS` with `javax.net.ssl.trustStore` and `javax.net.ssl.trustStorePassword`.
-- Keep the CA and generated truststore on the private deployment host; never bake environment-specific private CA material into this public image or commit the truststore.
-- Do not use trust-all TLS settings, disable hostname verification, or use `curl -k` as a workaround.
+The service runs as a non-root Docker container. MCP Streamable HTTP listens on container port **8083** at \`/mcp\`. Actuator uses a separate management port **8082** and must remain private. Do not publish either port directly to the host. Route only the authenticated MCP endpoint through the intended private network and tunnel boundary; never expose the management port.
 
-The private deployment repository contains the host-specific CA/truststore runbook, including local paths, Docker mounts, import/verification commands, and CA renewal procedure. Those values are intentionally omitted here.
+Published image:
 
-An unauthenticated request to the protected `/mcp` endpoint is expected to return HTTP 401 with an OAuth bearer challenge. The service port should remain unpublished on the host and reachable only through the intended private Docker network / Cloudflare Tunnel boundary. Do not expose the actuator management port publicly.
+\`\`\`text
+ikoyski/homelab-management-mcp:latest
+\`\`\`
 
-## Current Release 1 verification status
+See the [deployment guide](docs/setup/configuration-and-deployment.md) for a Compose template and verification commands.
 
-As of 2026-11-20, Release 1 is implemented and deployed on the homelab. The five Proxmox tools were exercised through authenticated MCP clients; the combined inventory returned all expected sections with no reported errors. Subsequent live validation confirmed all six guests and all four storage entries. Claude Code and Grok successfully queried the deployed Proxmox inventory on 2026-11-19; Gemini successfully queried it on 2026-11-20. Claude Code summarized live node, guest, filesystem, and storage inventory; Grok returned node, guest, and storage details; Gemini returned a detailed report covering the node, all six guests, and storage pools.
+## Development
 
-This is an observed homelab validation result, not a claim that every possible failure mode or every AI client has been exhaustively tested. See [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the latest handoff and remaining work.
+Requirements: Java 21 and Maven 3.9 or newer.
 
-## Technology
-
-- Java 21
-- Spring Boot 4
-- Spring Cloud Config Client
-- Proxmox VE HTTPS API
-- Model Context Protocol Java SDK
-- Streamable HTTP transport at `/mcp`
-- Spring Security OAuth2 Resource Server
-- Spring Boot Actuator
-
-## Deployment
-
-The service is deployed as a Docker container on a private homelab management host and attached to an internal Docker network. MCP listens on port 8083; Actuator uses the separate internal management port 8082. Keep the Cloudflare Tunnel origin pointed only at the MCP endpoint. Do not publish either container port directly to the host.
-
-After CI publishes the image, update only this service:
-
-```bash
-cd /path/to/private/compose-directory
-sudo docker compose pull homelab-management-mcp
-sudo docker compose up -d --no-deps --force-recreate --pull never homelab-management-mcp
-sudo docker compose ps homelab-management-mcp
-sudo docker compose logs --tail=80 homelab-management-mcp
-```
-
-Verify health from the internal Docker network:
-
-```bash
-sudo docker run --rm --network "$HOMELAB_DOCKER_NETWORK" curlimages/curl:latest \
-  -fsS http://homelab-management-mcp:8082/actuator/health
-```
-
-## Local development
-
-Requires Java 21 and Maven 3.9+.
-
-```bash
+\`\`\`bash
 mvn -B clean verify
-```
+\`\`\`
 
-The Config Server must be reachable using protected bootstrap settings supplied by the runtime environment.
+Use mocks/fixtures for ordinary tests; production infrastructure credentials are not required for the normal test suite. Do not deploy a new image without operator approval.
 
-## Future releases
+## Project status
 
-- Separately designed, explicitly authorized operational actions with approval and audit controls.
+Proxmox inventory, Docker inventory, host-scoped container/network filters, and bounded container-log retrieval are implemented and deployed. Inventory and log-diagnostic workflows have been exercised through Claude, Gemini, and Grok. Live infrastructure names, counts, and mappings are intentionally omitted here.
 
-Future write-capable tools must be separate from discovery tools and enforced server-side. Destructive actions must never be bundled into general inventory operations.
+See [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for dated validation details. Historical observations there must not be mistaken for current live state.
+
+## License
+
+See [LICENSE](LICENSE) if present.

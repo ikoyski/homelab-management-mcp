@@ -79,6 +79,8 @@ Follow these guides in order. They are written for new installations and can als
 6. [AI client connection and validation](docs/setup/ai-client.md) — configure OAuth/MCP access and safely test inventory and logs.
 
 For maintainers and coding agents:
+- [Shared AI-client operating guidance](AI-CLIENT-GUIDANCE.md) — provider-neutral privacy, inventory interpretation, targeted diagnostics, optional report generation, and read-only rules for Claude, Gemini, Grok, and other clients. Clients that do not automatically load repository instructions should be explicitly given this file at session start.
+- [Gemini project instructions](GEMINI.md)
 - [Project status and handoff](docs/PROJECT-STATUS.md)
 - [Architecture decisions](docs/architecture/decisions/)
 - [Modular monolith architecture](docs/architecture/modular-monolith.md)
@@ -135,7 +137,7 @@ Use mocks/fixtures for ordinary tests; production infrastructure credentials are
 
 ## Project status
 
-Proxmox inventory, Docker inventory, host-scoped container/network filters, and bounded container-log retrieval are implemented and deployed. Inventory and log-diagnostic workflows have been exercised through Claude, Gemini, and Grok. Live infrastructure names, counts, and mappings are intentionally omitted here.
+Proxmox inventory, Docker inventory, host-scoped container/network filters, and bounded container-log retrieval are implemented and deployed. Inventory and log-diagnostic workflows have been exercised through Claude, Gemini, and Grok. All three clients have also completed an operator-directed inventory-to-diagnostics-to-standalone-HTML-report exercise. Report generation remains an AI-client activity, not an MCP server feature. Live infrastructure names, counts, and mappings are intentionally omitted here.
 
 See [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for dated validation details. Historical observations there must not be mistaken for current live state.
 

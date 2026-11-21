@@ -1,6 +1,8 @@
 # Homelab Management MCP — Project Instructions
 
-> Shared operating rules for Claude, Gemini, Grok, and other AI clients: read [AI-CLIENT-GUIDANCE.md](AI-CLIENT-GUIDANCE.md). This file remains the detailed repository engineering guide.
+> Shared operating rules for Claude, Gemini, Grok, and other AI clients. This file remains the detailed repository engineering guide.
+
+@AI-CLIENT-GUIDANCE.md
 
 ## Mission
 Build a private-homelab discovery and management MCP server. Start with read-only discovery. The repository is public, so assume every committed byte is public.

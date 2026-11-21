@@ -1,6 +1,8 @@
 # Gemini Project Instructions
 
-Read and follow [AI-CLIENT-GUIDANCE.md](AI-CLIENT-GUIDANCE.md) for the shared, provider-neutral rules governing Homelab MCP use, inventory interpretation, privacy, targeted log diagnostics, optional HTML reporting, and the read-only boundary.
+Import the shared, provider-neutral rules governing Homelab MCP use, inventory interpretation, privacy, targeted log diagnostics, optional HTML reporting, and the read-only boundary:
+
+@./AI-CLIENT-GUIDANCE.md
 
 For repository engineering work, also follow [CLAUDE.md](CLAUDE.md) as the repository's detailed engineering and security guide, and read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) before proposing changes.
 

@@ -65,14 +65,14 @@ The inventory tools must expose only explicitly allowlisted fields. Never return
 
 ## Release 2 — implementation and live validation
 
-The core Docker inventory implementation is deployed in the private homelab management environment and has been successfully exercised through authenticated Claude Code and Grok MCP clients.
+The core Docker inventory implementation is deployed in the private homelab management environment and has been successfully exercised through authenticated Claude Code, Gemini, and Grok MCP clients.
 
 **Verified live behavior:**
 - Portainer Server and the four Agents are on CE 2.45.4; the five approved environments reconnect and return Docker Engine information.
 - Configured environment keys and their exact Portainer names are supplied by the private Config Server. Endpoint IDs remain dynamically discovered; the public source and documentation contain no live host identifiers.
 - Container and network discovery return results from all five hosts. Claude Code's observed baseline was 43 containers: 39 running and four exited.
 - The four exited containers in that baseline are intentional inventory states. Do not recommend restarting or deleting them, and do not treat their presence as an inventory failure.
-- Container-side network attachment names are available. In the currently deployed build, network objects may have empty `connectedContainers`; restart count, StartedAt, and uptime are also not yet enriched.
+- PR #29 added bounded container-inspect enrichment for restart count, StartedAt/running state, and structured health status, plus a same-host fallback for network connected-container names. Missing enrichment values remain unavailable rather than being inferred.
 - Both Claude Code and Grok returned `status: ok` and empty collection-error lists for the observed five-host validation.
 
 **Merged and deployed improvement:** PR #29 added bounded container inspect enrichment, per-host network membership fallback, and optional exact hostKey filters for container and network list tools. The user confirmed the PR merged and the build succeeded, then deployed the updated image.

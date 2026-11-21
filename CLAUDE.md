@@ -1,5 +1,7 @@
 # Homelab Management MCP — Project Instructions
 
+> Shared operating rules for Claude, Gemini, Grok, and other AI clients: read [AI-CLIENT-GUIDANCE.md](AI-CLIENT-GUIDANCE.md). This file remains the detailed repository engineering guide.
+
 ## Mission
 Build a private-homelab discovery and management MCP server. Start with read-only discovery. The repository is public, so assume every committed byte is public.
 
@@ -75,6 +77,11 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 - Do not expose `Authorization` values or the Proxmox token secret in commands, logs, examples or generated docs. The auth header format is `PVEAPIToken=<token-id>=<token-secret>`.
 
 ## AI client integration status
+
+- Claude Code: follow this file and `AI-CLIENT-GUIDANCE.md`.
+- Gemini: follow `GEMINI.md` and `AI-CLIENT-GUIDANCE.md`.
+- Grok and other clients without repository-native instruction discovery: explicitly provide or ask the client to read `AI-CLIENT-GUIDANCE.md` at the start of a homelab session. The file is provider-neutral; do not assume a client automatically loads it.
+
 
 The Auth Server pre-registers provider-specific Homelab clients. A client registration existing in Config Server does not prove that the provider completed OAuth, MCP initialization or tool execution. **Claude Code and Grok were successfully validated on 2026-11-19:** Claude Code completed OAuth authorization, connected to the deployed Homelab MCP, discovered/used the Proxmox tools, and produced a natural-language report from live inventory. Grok also connected and successfully queried live Proxmox inventory, returning node, guest, and storage details. These results validate the observed Release 1 client/tool paths only; they do not validate Docker inventory or other untested clients. Keep a dated test matrix in the private deployment runbook and mark each stage separately: OAuth authorization, MCP initialize/list-tools, and authenticated tool calls. Do not claim Gemini/other-client end-to-end compatibility without real tool results. The current Homelab MCP source exposes the modern MCP Servlet transport at `/mcp`; do not assume it has the Kanban MCP service's separate legacy transport.
 

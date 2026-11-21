@@ -2,6 +2,13 @@
 
 Notable project changes are recorded here in reverse chronological order. This is a concise project-level history, not a replacement for Git commit history or release notes.
 
+## 2026-11-22
+
+### Documentation
+- Added provider-neutral `AI-CLIENT-GUIDANCE.md` covering privacy, inventory-first diagnostics, conservative state interpretation, optional standalone HTML reporting, untrusted-content handling, and the read-only boundary.
+- Added `GEMINI.md` and linked the shared guidance from `CLAUDE.md` and the public README. Clients without automatic repository-instruction discovery must be explicitly given the shared guide.
+- Updated the project handoff to record successful operator-directed inventory-to-report exercises through Claude, Gemini, and Grok. Report generation remains client-side; no MCP tool or server-side reporting feature was introduced.
+
 ## 2026-11-21
 
 ### Documentation

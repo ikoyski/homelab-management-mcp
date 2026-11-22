@@ -43,11 +43,22 @@ The MCP connects to the Proxmox HTTPS API and one Portainer Server. Portainer Se
 
 ## Available MCP tools
 
+### General
+
+| Tool / resource | Purpose |
+|---|---|
+| `get_homelab_capabilities` | Summarizes implemented capabilities, configured integrations, safe discovery labels, read-only boundary, and guidance access |
+| `get_ai_client_guidance` | Returns the complete AI-client operating guide when MCP resources are unavailable |
+| `homelab://guidance/ai-client` | Read-only MCP resource containing the canonical `AI-CLIENT-GUIDANCE.md` |
+
+The server also advertises short usage instructions. Clients should call `get_homelab_capabilities` and read the guidance resource before homelab diagnostics. If resources are unavailable, use `get_ai_client_guidance`. Whether a client automatically consumes server instructions or reads resources depends on that client's implementation.
+
+The resource and fallback tool serve the same canonical Markdown document, packaged from the repository-root `AI-CLIENT-GUIDANCE.md`; the guide is not maintained as a second copy.
+
 ### Proxmox
 
 | Tool | Purpose |
 |---|---|
-| \`get_discovery_scope\` | Reports configured discovery labels and release scope |
 | \`list_proxmox_nodes\` | Lists nodes and safe status/resource fields |
 | \`list_proxmox_guests\` | Lists QEMU VMs and LXC containers |
 | \`list_proxmox_storage\` | Lists storage and safe capacity/status fields |
@@ -79,7 +90,7 @@ Follow these guides in order. They are written for new installations and can als
 6. [AI client connection and validation](docs/setup/ai-client.md) — configure OAuth/MCP access and safely test inventory and logs.
 
 For AI clients using the MCP:
-- [AI client operating guidance](AI-CLIENT-GUIDANCE.md) — provider-neutral privacy, inventory interpretation, targeted diagnostics, optional report generation, and read-only rules. This guide is for homelab analysis, not repository maintenance. Hosted clients do not automatically read repository files through an MCP connection; provide the guide explicitly until it is exposed through MCP.
+- [AI client operating guidance](AI-CLIENT-GUIDANCE.md) — the canonical provider-neutral privacy, inventory interpretation, targeted diagnostics, optional report generation, and read-only policy exposed through the MCP resource and fallback tool.
 
 For repository maintainers and coding agents:
 - [CLAUDE.md](CLAUDE.md) — repository-specific engineering, security, and continuity instructions. Claude Code loads it as project instructions; Gemini CLI can use the same file when configured to include `CLAUDE.md` in `context.fileName`.

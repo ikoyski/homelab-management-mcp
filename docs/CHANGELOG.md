@@ -4,10 +4,11 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ## 2026-11-22
 
-### Merged and deployed — MCP guidance exposure
-- PR #34 merged the rename to `get_homelab_capabilities`, the canonical AI-client guide as a read-only MCP resource (`homelab://guidance/ai-client`), the fallback `get_ai_client_guidance` tool, and provider-neutral server instructions.
+### Merged, deployed, and validated — MCP guidance exposure
+- PR #34 merged the rename to `get_homelab_capabilities`, the canonical AI-client guide as a read-only MCP resource (`homelab://guidance/ai-client`), the fallback `get_ai_client_guidance` tool, and provider-neutral server instructions. PR #35 aligned the guide's workflow wording with the renamed capabilities tool.
 - The homelab Docker image was recreated. Startup logs confirmed Spring Boot loaded the private Config Server configuration and started the MCP (8083) and management (8082) HTTP servers.
-- A connected client validated the capabilities response, retrieved the complete guide through `get_ai_client_guidance`, and confirmed `get_discovery_scope` is no longer registered. The tested client does not expose MCP resource-read operations, so resource retrieval remains unverified there; validate with a resource-capable client before claiming it works end to end.
+- Claude, Gemini, and Grok each validated the capabilities response, retrieved the complete five-section guide through `get_ai_client_guidance`, confirmed the updated Section 2 workflow, and confirmed `get_discovery_scope` is absent from their available tool lists.
+- None of the three tested client surfaces exposes an MCP resource-read operation. Therefore direct reads from `homelab://guidance/ai-client` remain unverified; this is a tested-client limitation, not evidence of a server failure. A resource-capable client or protocol-level test is still needed to validate `resources/list` and `resources/read`. The fallback-tool responses were not byte-compared with the resource content.
 
 ### Documentation
 - Added provider-neutral `AI-CLIENT-GUIDANCE.md` covering privacy, inventory-first diagnostics, conservative state interpretation, optional standalone HTML reporting, untrusted-content handling, and the read-only boundary.

@@ -46,6 +46,12 @@ class PortainerApiClientTest {
                 .andExpect(header("X-API-Key", "test-api-key"))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
+        server.expect(requestTo("https://portainer.test/api/endpoints/7/docker/containers/"
+                        + CONTAINER_ID + "/stats?stream=false"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-API-Key", "test-api-key"))
+                .andRespond(withSuccess("{\"cpu_stats\":{},\"memory_stats\":{}}", MediaType.APPLICATION_JSON));
+
         server.expect(requestTo("https://portainer.test/api/endpoints/7/docker/networks"))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("X-API-Key", "test-api-key"))
@@ -55,6 +61,7 @@ class PortainerApiClientTest {
         assertNotNull(client.getDockerInfo(7));
         assertNotNull(client.listContainers(7));
         assertNotNull(client.inspectContainer(7, CONTAINER_ID));
+        assertNotNull(client.getContainerStats(7, CONTAINER_ID));
         assertNotNull(client.listNetworks(7));
         server.verify();
     }
@@ -120,5 +127,7 @@ class PortainerApiClientTest {
         assertThrows(IllegalArgumentException.class, () -> client.listNetworks(0));
         assertThrows(IllegalArgumentException.class, () -> client.inspectContainer(1, "../info"));
         assertThrows(IllegalArgumentException.class, () -> client.inspectContainer(1, "short"));
+        assertThrows(IllegalArgumentException.class, () -> client.getContainerStats(1, "../info"));
+        assertThrows(IllegalArgumentException.class, () -> client.getContainerStats(0, CONTAINER_ID));
     }
 }

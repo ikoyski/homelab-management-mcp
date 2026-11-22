@@ -1,13 +1,16 @@
 package com.ikoyski.homelab.management.mcp.guidance;
 
 import java.util.List;
+import java.util.Map;
 
+import io.modelcontextprotocol.modern.McpException;
+import io.modelcontextprotocol.modern.McpSchema.ReadResourceOutcome;
+import io.modelcontextprotocol.modern.McpSchema.ReadResourceRequest;
 import io.modelcontextprotocol.modern.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.modern.McpSchema.Resource;
 import io.modelcontextprotocol.modern.McpSchema.TextResourceContents;
 import io.modelcontextprotocol.modern.server.McpRequestContext;
 import io.modelcontextprotocol.modern.server.McpSyncResponse;
-import io.modelcontextprotocol.modern.server.feature.McpSyncResource;
 import io.modelcontextprotocol.modern.server.feature.McpSyncResourceRepository;
 import io.modelcontextprotocol.modern.server.feature.ResourcesPage;
 import org.springframework.stereotype.Component;
@@ -27,20 +30,24 @@ public final class GuidanceResourceRepository implements McpSyncResourceReposito
 
     @Override
     public ResourcesPage list(McpRequestContext context, String cursor) {
+        if (cursor != null) {
+            throw McpException.invalidParams("No additional AI guidance resource pages are available.");
+        }
         return ResourcesPage.of(List.of(resourceDefinition()));
     }
 
     @Override
-    public McpSyncResource find(McpRequestContext context, String uri) {
-        if (!RESOURCE_URI.equals(uri)) {
-            return null;
+    public McpSyncResponse<ReadResourceOutcome> read(
+            McpRequestContext context, ReadResourceRequest request) {
+        if (!RESOURCE_URI.equals(request.uri())) {
+            throw McpException.invalidParams(
+                    "Unknown Homelab MCP resource.", Map.of("uri", request.uri()));
         }
-        return McpSyncResource.of((requestContext, request) ->
-                McpSyncResponse.result(ReadResourceResult.builder(List.of(
-                        TextResourceContents.builder(RESOURCE_URI, document.content())
-                                .mimeType("text/markdown")
-                                .build()))
-                        .build()));
+        return McpSyncResponse.result(ReadResourceResult.builder(List.of(
+                TextResourceContents.builder(RESOURCE_URI, document.content())
+                        .mimeType("text/markdown")
+                        .build()))
+                .build());
     }
 
     private static Resource resourceDefinition() {

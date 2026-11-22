@@ -119,7 +119,7 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 
 On 2026-11-22, the inventory-first diagnostics and standalone HTML-report workflow was exercised successfully through Claude, Gemini, and Grok. Each client retrieved Proxmox and Docker inventory, performed targeted diagnostics rather than indiscriminate log collection, and generated a standalone HTML report when prompted.
 
-The repository now contains [AI-CLIENT-GUIDANCE.md](../AI-CLIENT-GUIDANCE.md), a provider-neutral operating policy intended to be explicitly loaded by all AI clients. [CLAUDE.md](../CLAUDE.md) points Claude Code to the shared guide, and [GEMINI.md](../GEMINI.md) provides Gemini project instructions. Grok and clients without repository-native instruction discovery must be given the shared guide explicitly; do not assume automatic loading.
+The repository contains [AI-CLIENT-GUIDANCE.md](../AI-CLIENT-GUIDANCE.md), a provider-neutral operating policy for AI clients using the MCP. It covers homelab analysis and reporting, not repository maintenance. [CLAUDE.md](../CLAUDE.md) contains repository-agent engineering and continuity instructions and imports the MCP-facing guide for relevant operational context. Gemini CLI can use `CLAUDE.md` by configuring its `context.fileName` setting; no separate `GEMINI.md` is maintained. Hosted Gemini and Grok clients do not automatically read repository files through an MCP connection, so provide the guide explicitly until it is exposed through MCP.
 
 The shared policy covers:
 - Privacy and best-effort secondary redaction of log content; it explicitly does not treat AI-side redaction as a security boundary.
@@ -157,7 +157,7 @@ Report generation is performed by the AI client on operator request; no report-g
 - 2026-11-21 — Claude Code and Grok both validated the deployed Docker inventory across all five hosts; the observed baseline was 43 containers with four intentionally exited states.
 - 2026-11-21 — PR #29 merged and the updated inventory image deployed; user confirmed successful build. Gemini independently validated all five container and network hostKey filters against global inventory.
 - 2026-11-21 — PR #30 merged and deployed: added fixed GET-only Docker container log retrieval for one exact host/container, 100-line default / 200-line maximum, 256 KiB response ceiling, timestamps, no follow/streaming, Docker stream decoding, and best-effort credential redaction. Live log retrieval has been validated through Claude, Gemini, and Grok.
-- 2026-11-22 — Claude, Gemini, and Grok each completed an operator-directed inventory-first diagnostics and standalone HTML-report exercise. Added provider-neutral `AI-CLIENT-GUIDANCE.md`, Claude Code reference, and Gemini project instructions. No MCP implementation or reporting endpoint was added.
+- 2026-11-22 — Claude, Gemini, and Grok each completed an operator-directed inventory-first diagnostics and standalone HTML-report exercise. Added provider-neutral `AI-CLIENT-GUIDANCE.md` for MCP-facing clients and clarified the distinction from repository-agent instructions. Repository continuity remains in `CLAUDE.md` and this project handoff; removed the redundant `GEMINI.md`. No MCP implementation or reporting endpoint was added.
 
 ## Recommended next work
 
@@ -173,8 +173,7 @@ Read these files before proposing or changing implementation:
 
 1. `docs/PROJECT-STATUS.md` — current status, open prerequisites, constraints, and next steps.
 2. `CLAUDE.md` — mandatory engineering and security rules.
-3. `AI-CLIENT-GUIDANCE.md` — shared provider-neutral AI operating, privacy, diagnostics, and reporting policy.
-4. `GEMINI.md` — Gemini project instructions (when using Gemini).
+3. `AI-CLIENT-GUIDANCE.md` — MCP-facing privacy, diagnostic, and reporting policy; consult it when working on AI-client behavior or homelab diagnostic workflows.
 5. `README.md` — public project overview and verified release status.
 6. `docs/architecture/release-2-docker-inventory.md` — Release 2 detailed design.
 7. Relevant records under `docs/architecture/decisions/` — rationale behind accepted decisions.

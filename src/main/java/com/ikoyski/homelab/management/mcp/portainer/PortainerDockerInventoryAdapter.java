@@ -368,7 +368,7 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider,
             JsonNode perCpu = cpu.path("cpu_usage").path("percpu_usage");
             onlineCpus = perCpu.isArray() ? perCpu.size() : 0;
         }
-        Double cpuPercent = cpuDelta > 0 && systemDelta > 0 && onlineCpus > 0
+        Double cpuPercent = cpuDelta >= 0 && systemDelta > 0 && onlineCpus > 0
                 ? (double) cpuDelta / (double) systemDelta * onlineCpus * 100.0 : null;
 
         JsonNode memory = stats.path("memory_stats");

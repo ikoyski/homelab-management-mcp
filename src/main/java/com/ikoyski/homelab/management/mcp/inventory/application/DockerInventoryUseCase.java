@@ -1,6 +1,8 @@
 package com.ikoyski.homelab.management.mcp.inventory.application;
 
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerStats;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
+import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -20,5 +22,9 @@ public class DockerInventoryUseCase {
 
     public DockerInventory collect(String hostKey) {
         return provider.collect(hostKey);
+    }
+
+    public List<DockerContainerStats> collectStats(String hostKey, String containerName) {
+        return provider.collectStats(hostKey, containerName);
     }
 }

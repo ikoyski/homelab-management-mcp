@@ -48,7 +48,7 @@ Notes:
 - \`homelab.security.allowed-users\` lists central Webtools UUIDs; missing/empty denies access.
 - Proxmox and Portainer credentials belong only in private configuration.
 - Docker host keys must be unique lowercase keys matching \`[a-z][a-z0-9-]{0,62}\`.
-- \`homelab.discovery.targets\` is informational output for \`get_discovery_scope\`, not an endpoint list, SSH target list, or authorization boundary.
+- \`homelab.discovery.targets\` is returned as sanitized informational labels by get_homelab_capabilities; it is not an endpoint list, SSH target list, or authorization boundary.
 - \`homelab.discovery.mode\` is present for compatibility/documentation; the tool currently reports \`read-only\`.
 - OAuth issuer/audience and resource-server properties must match the private Webtools Auth deployment; do not guess them.
 

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ikoyski.homelab.management.mcp.guidance.AiClientGuidanceDocument;
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryUseCase;
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerContainerLogsUseCase;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
@@ -17,17 +18,20 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.env.MockEnvironment;
 import tools.jackson.databind.ObjectMapper;
 
 class CombinedToolRepositoryTest {
 
     private static final List<String> PROXMOX_TOOLS = List.of(
-            "get_discovery_scope",
+            "get_homelab_capabilities",
             "list_proxmox_nodes",
             "list_proxmox_guests",
             "list_proxmox_storage",
             "get_proxmox_inventory");
+
+    private static final List<String> GUIDANCE_TOOLS = List.of("get_ai_client_guidance");
 
     private static final List<String> DOCKER_TOOLS = List.of(
             "list_docker_hosts",
@@ -37,14 +41,19 @@ class CombinedToolRepositoryTest {
             "get_docker_container_logs");
 
     @Test
-    void modernAdapterAdvertisesTheSharedTenToolCatalogWhenPortainerIsConfigured() {
+    void modernAdapterAdvertisesTheSharedElevenToolCatalogWhenPortainerIsConfigured() {
         HomelabToolCatalog catalog = configuredCatalog();
         CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
-        assertEquals(10, catalog.toolNames().size());
+        assertEquals(11, catalog.toolNames().size());
         assertEquals(catalog.toolNames().size(), modernAdapter.list(null, null).tools().size());
 
         for (String name : PROXMOX_TOOLS) {
+            assertTrue(catalog.contains(name));
+            assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
+            assertNotNull(catalog.toolDescription(name));
+        }
+        for (String name : GUIDANCE_TOOLS) {
             assertTrue(catalog.contains(name));
             assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
             assertNotNull(catalog.toolDescription(name));
@@ -100,15 +109,19 @@ class CombinedToolRepositoryTest {
     }
 
     @Test
-    void catalogKeepsTheFiveProxmoxToolsWhenDockerIntegrationIsNotConfigured() {
+    void catalogKeepsProxmoxAndGuidanceToolsWhenDockerIntegrationIsNotConfigured() {
         HomelabDiscoveryToolRepository proxmox = new HomelabDiscoveryToolRepository(
                 new MockEnvironment(), mock(ProxmoxInventoryService.class), new ObjectMapper());
-        HomelabToolCatalog catalog = new HomelabToolCatalog(proxmox);
+        GuidanceToolRepository guidance = guidanceTool();
+        HomelabToolCatalog catalog = new HomelabToolCatalog(proxmox, guidance);
         CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
-        assertEquals(5, catalog.toolNames().size());
+        assertEquals(6, catalog.toolNames().size());
         assertEquals(catalog.toolNames().size(), modernAdapter.list(null, null).tools().size());
         for (String name : PROXMOX_TOOLS) {
+            assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
+        }
+        for (String name : GUIDANCE_TOOLS) {
             assertNotNull(modernAdapter.find(null, name), "Missing MCP tool: " + name);
         }
         for (String name : DOCKER_TOOLS) {
@@ -117,18 +130,41 @@ class CombinedToolRepositoryTest {
     }
 
     @Test
-    void discoveryScopeReportsDockerAsConfiguredOnlyWhenPortainerBaseUrlExists() {
-        MockEnvironment environment = new MockEnvironment()
-                .withProperty("homelab.docker.portainer.base-url", "https://portainer.example/");
+    void homelabCapabilitiesReportConfiguredIntegrationsAndDoNotClaimConnectivity() {
+        MockEnvironment configuredEnvironment = new MockEnvironment()
+                .withProperty("homelab.proxmox.api-url", "https://proxmox.example/")
+                .withProperty("homelab.proxmox.token-id", "mcp@pve!readonly")
+                .withProperty("homelab.proxmox.token-secret", "test-secret")
+                .withProperty("homelab.docker.portainer.base-url", "https://portainer.example/")
+                .withProperty("homelab.discovery.targets[0]", "dev-pve")
+                .withProperty("homelab.discovery.targets[1]", "unsafe target");
         HomelabDiscoveryToolRepository configured = new HomelabDiscoveryToolRepository(
-                environment, mock(ProxmoxInventoryService.class), new ObjectMapper());
+                configuredEnvironment, mock(ProxmoxInventoryService.class), new ObjectMapper());
         HomelabDiscoveryToolRepository unconfigured = new HomelabDiscoveryToolRepository(
                 new MockEnvironment(), mock(ProxmoxInventoryService.class), new ObjectMapper());
 
-        assertTrue(configured.execute("get_discovery_scope").contains("\"dockerInventoryConfigured\":true"));
-        assertTrue(unconfigured.execute("get_discovery_scope").contains("\"dockerInventoryConfigured\":false"));
+        String configuredResult = configured.execute("get_homelab_capabilities");
+        String unconfiguredResult = unconfigured.execute("get_homelab_capabilities");
+
+        assertTrue(configuredResult.contains("\"proxmoxInventory\":{\"implemented\":true,\"enabled\":true}"));
+        assertTrue(configuredResult.contains("\"dockerInventory\":{\"implemented\":true,\"enabled\":true}"));
+        assertTrue(configuredResult.contains("\"configured\":true"));
+        assertTrue(configuredResult.contains("\"connectivityChecked\":false"));
+        assertTrue(configuredResult.contains("\"configuredTargetCount\":1"));
+        assertTrue(configuredResult.contains("\"resourceUri\":\"homelab://guidance/ai-client\""));
+        assertTrue(configuredResult.contains("\"retrievalTool\":\"get_ai_client_guidance\""));
+        assertTrue(unconfiguredResult.contains("\"dockerInventory\":{\"implemented\":true,\"enabled\":false}"));
+        assertTrue(unconfiguredResult.contains("\"proxmoxInventory\":{\"implemented\":true,\"enabled\":false}"));
+        assertTrue(unconfiguredResult.contains("\"proxmox\":{\"configured\":false"));
     }
 
+    @Test
+    void guidanceFallbackToolReturnsTheCanonicalGuideContent() {
+        String result = guidanceTool().execute("get_ai_client_guidance");
+
+        assertTrue(result.contains("Inventory-first diagnostic workflow"));
+        assertTrue(result.contains("Read-only boundary and operator approval"));
+    }
 
     @Test
     void dockerLogToolDispatchesTheExactHostContainerAndBoundedTail() {
@@ -166,6 +202,12 @@ class CombinedToolRepositoryTest {
         org.mockito.Mockito.verifyNoInteractions(logs);
     }
 
+    private static GuidanceToolRepository guidanceTool() {
+        AiClientGuidanceDocument document =
+                new AiClientGuidanceDocument(new ClassPathResource("guidance/AI-CLIENT-GUIDANCE.md"));
+        return new GuidanceToolRepository(document);
+    }
+
     private static HomelabToolCatalog configuredCatalog() {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("homelab.docker.portainer.base-url", "https://portainer.example/");
@@ -173,6 +215,6 @@ class CombinedToolRepositoryTest {
                 environment, mock(ProxmoxInventoryService.class), new ObjectMapper());
         DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
                 mock(DockerInventoryUseCase.class), mock(DockerContainerLogsUseCase.class), new ObjectMapper());
-        return new HomelabToolCatalog(proxmox, docker);
+        return new HomelabToolCatalog(proxmox, guidanceTool(), docker);
     }
 }

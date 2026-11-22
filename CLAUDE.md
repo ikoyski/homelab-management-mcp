@@ -31,7 +31,7 @@ For end-to-end infrastructure setup, read [docs/setup/README.md](docs/setup/READ
 
 ## Release 1 target model
 
-Release 1 uses the Proxmox VE HTTPS API as the authoritative inventory source. It discovers cluster nodes, QEMU VMs, LXC containers and storage through the Proxmox API; it does not connect to each guest or host over SSH. The `homelab.discovery.targets` list is read and returned as sanitized informational labels by `get_discovery_scope`; it is not an SSH target list, endpoint list or authorization boundary. The configured `homelab.discovery.mode` property is not currently read; the tool hardcodes `read-only` in its response. Never infer or hardcode guest names, VMIDs, addresses or credentials.
+Release 1 uses the Proxmox VE HTTPS API as the authoritative inventory source. It discovers cluster nodes, QEMU VMs, LXC containers and storage through the Proxmox API; it does not connect to each guest or host over SSH. The homelab.discovery.targets list is read and returned as sanitized informational labels by get_homelab_capabilities; it is not an SSH target list, endpoint list or authorization boundary. That tool also summarizes implemented inventory capabilities, configuration presence, the read-only boundary, and AI guidance access. Configuration presence is not a connectivity check. The configured homelab.discovery.mode property is not currently read; the tool reports the fixed read-only boundary in its response. Never infer or hardcode guest names, VMIDs, addresses or credentials.
 
 ## Release 2 target model
 
@@ -82,7 +82,7 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 
 - Claude Code: follow this file for repository work. Its imported `AI-CLIENT-GUIDANCE.md` contains the separate operating policy for homelab analysis and diagnostics.
 - Gemini CLI: can use this file as its repository instruction file when its `context.fileName` setting includes `CLAUDE.md`. This avoids maintaining a duplicate Gemini-specific instruction file.
-- Hosted Gemini and Grok clients connecting to the MCP do not automatically read repository Markdown files merely because they connect to the server. Provide `AI-CLIENT-GUIDANCE.md` explicitly until the guidance is exposed through an MCP-supported mechanism.
+- The MCP exposes AI-CLIENT-GUIDANCE.md as the homelab://guidance/ai-client resource and through the get_ai_client_guidance fallback tool. get_homelab_capabilities advertises both retrieval paths, and the server provides short usage instructions. Client behavior remains implementation-dependent: do not assume a client has read or applied the guide until retrieval is confirmed.
 
 
 The Auth Server pre-registers provider-specific Homelab clients. A client registration alone does not prove that OAuth authorization, MCP initialization, tool discovery, or authenticated tool execution succeeded. Keep these as distinct validation stages.

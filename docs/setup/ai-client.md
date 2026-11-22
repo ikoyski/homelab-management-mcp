@@ -24,13 +24,14 @@ The token must be valid for the configured issuer and audience. The central Webt
 
 1. Add the MCP server using the exact endpoint and OAuth details.
 2. Complete browser authorization.
-3. Confirm MCP initialization and tool discovery.
-4. Call \`get_discovery_scope\`.
-5. Call \`get_proxmox_inventory\` and confirm nodes, guests, and storage.
-6. Call \`get_docker_inventory\` and confirm only allowlisted environments are included.
-7. If needed, call \`get_docker_container_logs\` for one exact host key/container name with a small tail.
+3. Confirm the MCP connection and tool discovery.
+4. Call get_homelab_capabilities to review implemented tools, configured integrations, safe discovery labels, the read-only boundary, and guidance access.
+5. Read the homelab://guidance/ai-client resource. If the client cannot read MCP resources, call get_ai_client_guidance instead.
+6. Call get_proxmox_inventory and confirm nodes, guests, and storage.
+7. If Docker is configured, call get_docker_inventory and confirm only allowlisted environments are included.
+8. If needed, call get_docker_container_logs for one exact host key/container name with a small tail.
 
-OAuth login, MCP initialization/tool discovery, and successful tool execution are separate validation stages.
+OAuth login, MCP connection/protocol discovery, tool discovery, resource listing and reading, and successful tool execution are separate validation stages. Server instructions are included in the protocol's initialization or discovery exchange, depending on protocol revision. Clients may differ in whether they automatically use those instructions or read resources. Verify that the guide was actually retrieved before relying on it.
 
 ## 4. Safe first diagnostic prompt
 

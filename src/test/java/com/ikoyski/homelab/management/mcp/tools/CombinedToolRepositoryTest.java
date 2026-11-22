@@ -13,6 +13,7 @@ import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryU
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerContainerLogsUseCase;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerStats;
 import com.ikoyski.homelab.management.mcp.proxmox.ProxmoxInventoryService;
 import java.time.Instant;
 import java.util.List;
@@ -38,14 +39,14 @@ class CombinedToolRepositoryTest {
             "list_docker_containers",
             "list_docker_networks",
             "get_docker_inventory",
-            "get_docker_container_logs");
+            "get_docker_container_logs",\n            "get_docker_container_stats");
 
     @Test
     void modernAdapterAdvertisesTheSharedElevenToolCatalogWhenPortainerIsConfigured() {
         HomelabToolCatalog catalog = configuredCatalog();
         CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
-        assertEquals(11, catalog.toolNames().size());
+        assertEquals(12, catalog.toolNames().size());
         assertEquals(catalog.toolNames().size(), modernAdapter.list(null, null).tools().size());
 
         for (String name : PROXMOX_TOOLS) {

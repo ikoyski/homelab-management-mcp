@@ -146,14 +146,14 @@ class CombinedToolRepositoryTest {
         String configuredResult = configured.execute("get_homelab_capabilities");
         String unconfiguredResult = unconfigured.execute("get_homelab_capabilities");
 
-        assertTrue(configuredResult.contains("\"proxmoxInventory\":true"));
-        assertTrue(configuredResult.contains("\"dockerInventory\":true"));
+        assertTrue(configuredResult.contains("\"proxmoxInventory\":{\"implemented\":true,\"enabled\":true}"));
+        assertTrue(configuredResult.contains("\"dockerInventory\":{\"implemented\":true,\"enabled\":true}"));
         assertTrue(configuredResult.contains("\"configured\":true"));
         assertTrue(configuredResult.contains("\"connectivityChecked\":false"));
         assertTrue(configuredResult.contains("\"configuredTargetCount\":1"));
         assertTrue(configuredResult.contains("\"resourceUri\":\"homelab://guidance/ai-client\""));
         assertTrue(configuredResult.contains("\"retrievalTool\":\"get_ai_client_guidance\""));
-        assertTrue(unconfiguredResult.contains("\"dockerInventory\":false"));
+        assertTrue(unconfiguredResult.contains("\"dockerInventory\":{\"implemented\":true,\"enabled\":false}"));
         assertTrue(unconfiguredResult.contains("\"proxmox\":{\"configured\":false"));
     }
 

@@ -4,10 +4,10 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ## 2026-11-22
 
-### In progress — MCP guidance exposure
-- Renamed the informational discovery tool to get_homelab_capabilities.
-- Added the canonical AI-client guide as a read-only MCP resource (homelab://guidance/ai-client) and a fallback get_ai_client_guidance tool.
-- Added provider-neutral server instructions and updated the capabilities response, tests, and client documentation. PR, cross-client retrieval validation, and deployment remain outstanding.
+### Merged and deployed — MCP guidance exposure
+- PR #34 merged the rename to `get_homelab_capabilities`, the canonical AI-client guide as a read-only MCP resource (`homelab://guidance/ai-client`), the fallback `get_ai_client_guidance` tool, and provider-neutral server instructions.
+- The homelab Docker image was recreated. Startup logs confirmed Spring Boot loaded the private Config Server configuration and started the MCP (8083) and management (8082) HTTP servers.
+- A connected client validated the capabilities response, retrieved the complete guide through `get_ai_client_guidance`, and confirmed `get_discovery_scope` is no longer registered. The tested client does not expose MCP resource-read operations, so resource retrieval remains unverified there; validate with a resource-capable client before claiming it works end to end.
 
 ### Documentation
 - Added provider-neutral `AI-CLIENT-GUIDANCE.md` covering privacy, inventory-first diagnostics, conservative state interpretation, optional standalone HTML reporting, untrusted-content handling, and the read-only boundary.

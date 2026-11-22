@@ -4,6 +4,11 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ## 2026-11-22
 
+### In progress — MCP guidance exposure
+- Renamed the informational discovery tool to get_homelab_capabilities.
+- Added the canonical AI-client guide as a read-only MCP resource (homelab://guidance/ai-client) and a fallback get_ai_client_guidance tool.
+- Added provider-neutral server instructions and updated the capabilities response, tests, and client documentation. PR, cross-client retrieval validation, and deployment remain outstanding.
+
 ### Documentation
 - Added provider-neutral `AI-CLIENT-GUIDANCE.md` covering privacy, inventory-first diagnostics, conservative state interpretation, optional standalone HTML reporting, untrusted-content handling, and the read-only boundary.
 - Clarified the separation between MCP-facing AI-client guidance and repository-agent instructions. Repository continuity remains in `CLAUDE.md` and `docs/PROJECT-STATUS.md`; the redundant `GEMINI.md` file was removed, with Gemini CLI able to use `CLAUDE.md` through its context-file configuration.

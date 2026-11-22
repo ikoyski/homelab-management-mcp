@@ -136,6 +136,18 @@ class CombinedToolRepositoryTest {
     }
 
     @Test
+    void dockerStatsToolDefaultsToAllConfiguredHostsAndRunningContainers() {
+        DockerInventoryUseCase inventory = mock(DockerInventoryUseCase.class);
+        when(inventory.collectStats(null, null)).thenReturn(List.of());
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                inventory, mock(DockerContainerLogsUseCase.class), new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
+
+        assertEquals("[]", catalog.execute("get_docker_container_stats"));
+        verify(inventory).collectStats(null, null);
+    }
+
+    @Test
     void catalogKeepsProxmoxAndGuidanceToolsWhenDockerIntegrationIsNotConfigured() {
         HomelabDiscoveryToolRepository proxmox = new HomelabDiscoveryToolRepository(
                 new MockEnvironment(), mock(ProxmoxInventoryService.class), new ObjectMapper());

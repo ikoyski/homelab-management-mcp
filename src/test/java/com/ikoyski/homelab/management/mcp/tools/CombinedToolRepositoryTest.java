@@ -130,8 +130,8 @@ class CombinedToolRepositoryTest {
 
         String response = catalog.execute("get_docker_container_stats",
                 Map.of("hostKey", "dev-pve", "containerName", "sample"));
-        assertTrue(response.contains("\\"cpuPercent\\":12.5"));
-        assertTrue(response.contains("\\"memoryWorkingSetBytes\\":768"));
+        assertTrue(response.contains("\"cpuPercent\":12.5"));
+        assertTrue(response.contains("\"memoryWorkingSetBytes\":768"));
         verify(inventory).collectStats("dev-pve", "sample");
     }
 
@@ -199,7 +199,7 @@ class CombinedToolRepositoryTest {
         DockerContainerLogsUseCase logs = mock(DockerContainerLogsUseCase.class);
         when(logs.readLogs("docker-host-a", "sample", 25)).thenReturn(
                 new DockerContainerLogs("ok", "docker-host-a", "sample", 25, 12,
-                        false, 0, "sample log\\n", null));
+                        false, 0, "sample log\n", null));
         DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
                 inventory, logs, new ObjectMapper());
         HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
@@ -208,7 +208,7 @@ class CombinedToolRepositoryTest {
                 Map.of("hostKey", "docker-host-a", "containerName", "sample", "tail", 25));
 
         assertTrue(result.contains("\"status\":\"ok\""));
-        assertTrue(result.contains("\"logs\":\"sample log"));
+                        false, 0, "sample log\n", null));
         verify(logs).readLogs("docker-host-a", "sample", 25);
     }
 

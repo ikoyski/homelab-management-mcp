@@ -21,12 +21,13 @@
 | Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
 | Bounded container log retrieval | Implemented, merged, deployed, and live-validated | `get_docker_container_logs` resolves one exact configured host and discovered container name, defaults tail to 100 (maximum 200), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. Live retrieval was confirmed through Claude, Gemini, and Grok. |
 | Cross-client AI reporting workflow | Validated as client-side workflow | Claude, Gemini, and Grok each completed an operator-directed inventory-first assessment, targeted diagnostics, and standalone HTML report. Report generation is not an MCP server feature. |
+| MCP AI guidance exposure | Implemented on feature branch; PR pending | Guide is exposed as a read-only MCP resource and fallback tool, advertised by the capabilities tool and server instructions. Cross-client retrieval validation and deployment remain outstanding. |
 
 ## Release 1 — completed
 
 The deployed service provides these read-only tools:
 
-- `get_discovery_scope`
+- get_homelab_capabilities
 - `list_proxmox_nodes`
 - `list_proxmox_guests`
 - `list_proxmox_storage`
@@ -119,7 +120,9 @@ Keep OAuth authorization, MCP initialization/tool discovery, and authenticated t
 
 On 2026-11-22, the inventory-first diagnostics and standalone HTML-report workflow was exercised successfully through Claude, Gemini, and Grok. Each client retrieved Proxmox and Docker inventory, performed targeted diagnostics rather than indiscriminate log collection, and generated a standalone HTML report when prompted.
 
-The repository contains [AI-CLIENT-GUIDANCE.md](../AI-CLIENT-GUIDANCE.md), a provider-neutral operating policy for AI clients using the MCP. It covers homelab analysis and reporting, not repository maintenance. [CLAUDE.md](../CLAUDE.md) contains repository-agent engineering and continuity instructions and imports the MCP-facing guide for relevant operational context. Gemini CLI can use `CLAUDE.md` by configuring its `context.fileName` setting; no separate `GEMINI.md` is maintained. Hosted Gemini and Grok clients do not automatically read repository files through an MCP connection, so provide the guide explicitly until it is exposed through MCP.
+The repository contains [AI-CLIENT-GUIDANCE.md](../AI-CLIENT-GUIDANCE.md), a provider-neutral operating policy for AI clients using the MCP. It covers homelab analysis and reporting, not repository maintenance. [CLAUDE.md](../CLAUDE.md) contains repository-agent engineering and continuity instructions. Gemini CLI can use CLAUDE.md by configuring its context.fileName setting; no separate GEMINI.md is maintained.
+
+The MCP guidance-exposure implementation is being added on a separate feature branch. It packages the canonical Markdown file into the application, exposes it at homelab://guidance/ai-client, adds get_ai_client_guidance as a tool fallback, and advertises these paths through get_homelab_capabilities and server instructions. Client behavior is implementation-dependent: a server advertisement does not prove the client retrieved or applied the guide. Cross-client retrieval validation and deployment remain outstanding.
 
 The shared policy covers:
 - Privacy and best-effort secondary redaction of log content; it explicitly does not treat AI-side redaction as a security boundary.
@@ -129,7 +132,7 @@ The shared policy covers:
 - Optional, offline, self-contained HTML reports with escaped untrusted content, no external dependencies, no secrets, and no infrastructure-action controls.
 - The MCP remains read-only. Report recommendations never authorize remediation.
 
-Report generation is performed by the AI client on operator request; no report-generation endpoint, MCP tool, or server-side reporting feature was added. The exercise validates the observed client workflow, not a guarantee that every future session will follow the guide automatically.
+Report generation is performed by the AI client on operator request; no report-generation endpoint or server-side reporting feature was added. The separate guide-retrieval resource and fallback tool provide operating instructions only; they do not generate reports. The exercise validates the observed client workflow, not a guarantee that every future session will follow the guide automatically.
 
 
 ## Decisions and constraints
@@ -157,7 +160,8 @@ Report generation is performed by the AI client on operator request; no report-g
 - 2026-11-21 — Claude Code and Grok both validated the deployed Docker inventory across all five hosts; the observed baseline was 43 containers with four intentionally exited states.
 - 2026-11-21 — PR #29 merged and the updated inventory image deployed; user confirmed successful build. Gemini independently validated all five container and network hostKey filters against global inventory.
 - 2026-11-21 — PR #30 merged and deployed: added fixed GET-only Docker container log retrieval for one exact host/container, 100-line default / 200-line maximum, 256 KiB response ceiling, timestamps, no follow/streaming, Docker stream decoding, and best-effort credential redaction. Live log retrieval has been validated through Claude, Gemini, and Grok.
-- 2026-11-22 — Claude, Gemini, and Grok each completed an operator-directed inventory-first diagnostics and standalone HTML-report exercise. Added provider-neutral `AI-CLIENT-GUIDANCE.md` for MCP-facing clients and clarified the distinction from repository-agent instructions. Repository continuity remains in `CLAUDE.md` and this project handoff; removed the redundant `GEMINI.md`. No MCP implementation or reporting endpoint was added.
+- 2026-11-22 — Claude, Gemini, and Grok each completed an operator-directed inventory-first diagnostics and standalone HTML-report exercise. Added provider-neutral `AI-CLIENT-GUIDANCE.md` for MCP-facing clients and clarified the distinction from repository-agent instructions. Repository continuity remains in `CLAUDE.md` and this project handoff; removed the redundant `GEMINI.md`.
+- 2026-11-22 — Added MCP guidance exposure on feature branch: `get_homelab_capabilities`, read-only resource `homelab://guidance/ai-client`, fallback tool `get_ai_client_guidance`, and concise server instructions. PR and cross-client validation pending; no deployment has occurred.
 
 ## Recommended next work
 

@@ -208,7 +208,7 @@ class CombinedToolRepositoryTest {
                 Map.of("hostKey", "docker-host-a", "containerName", "sample", "tail", 25));
 
         assertTrue(result.contains("\"status\":\"ok\""));
-                        false, 0, "sample log\n", null));
+        assertTrue(result.contains("\"logs\":\"sample log"));
         verify(logs).readLogs("docker-host-a", "sample", 25);
     }
 

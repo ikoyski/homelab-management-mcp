@@ -174,8 +174,8 @@ Read these files before proposing or changing implementation:
 1. `docs/PROJECT-STATUS.md` — current status, open prerequisites, constraints, and next steps.
 2. `CLAUDE.md` — mandatory engineering and security rules.
 3. `AI-CLIENT-GUIDANCE.md` — MCP-facing privacy, diagnostic, and reporting policy; consult it when working on AI-client behavior or homelab diagnostic workflows.
-5. `README.md` — public project overview and verified release status.
-6. `docs/architecture/release-2-docker-inventory.md` — Release 2 detailed design.
-7. Relevant records under `docs/architecture/decisions/` — rationale behind accepted decisions.
+4. `README.md` — public project overview and verified release status.
+5. `docs/architecture/release-2-docker-inventory.md` — Release 2 detailed design.
+6. Relevant records under `docs/architecture/decisions/` — rationale behind accepted decisions.
 
 Treat this repository as the project source of truth. Conversation history is supplementary and may be incomplete. Verify current code, merged PRs, CI, and actual deployment state before claiming anything changed or passed.

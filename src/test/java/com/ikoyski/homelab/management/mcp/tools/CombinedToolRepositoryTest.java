@@ -43,7 +43,7 @@ class CombinedToolRepositoryTest {
             "get_docker_container_stats");
 
     @Test
-    void modernAdapterAdvertisesTheSharedElevenToolCatalogWhenPortainerIsConfigured() {
+    void modernAdapterAdvertisesTheSharedTwelveToolCatalogWhenPortainerIsConfigured() {
         HomelabToolCatalog catalog = configuredCatalog();
         CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
@@ -111,6 +111,31 @@ class CombinedToolRepositoryTest {
     }
 
     @Test
+    void dockerStatsToolDeclaresOptionalFiltersAndDispatchesSnapshotRequest() {
+        DockerInventoryUseCase inventory = mock(DockerInventoryUseCase.class);
+        DockerContainerStats sample = new DockerContainerStats("dev-pve", "sample", "abcdef123456",
+                "ok", Instant.now(), 12.5, 1024L, 768L, 4096L, 18.75, 256L,
+                100L, 200L, 300L, 400L, null);
+        when(inventory.collectStats("dev-pve", "sample")).thenReturn(List.of(sample));
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                inventory, mock(DockerContainerLogsUseCase.class), new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
+
+        Map<String, Object> schema = catalog.toolInputSchema("get_docker_container_stats");
+        Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
+        assertEquals(false, schema.get("additionalProperties"));
+        assertEquals(List.of(), schema.get("required"));
+        assertTrue(properties.containsKey("hostKey"));
+        assertTrue(properties.containsKey("containerName"));
+
+        String response = catalog.execute("get_docker_container_stats",
+                Map.of("hostKey", "dev-pve", "containerName", "sample"));
+        assertTrue(response.contains("\\"cpuPercent\\":12.5"));
+        assertTrue(response.contains("\\"memoryWorkingSetBytes\\":768"));
+        verify(inventory).collectStats("dev-pve", "sample");
+    }
+
+    @Test
     void catalogKeepsProxmoxAndGuidanceToolsWhenDockerIntegrationIsNotConfigured() {
         HomelabDiscoveryToolRepository proxmox = new HomelabDiscoveryToolRepository(
                 new MockEnvironment(), mock(ProxmoxInventoryService.class), new ObjectMapper());
@@ -174,8 +199,7 @@ class CombinedToolRepositoryTest {
         DockerContainerLogsUseCase logs = mock(DockerContainerLogsUseCase.class);
         when(logs.readLogs("docker-host-a", "sample", 25)).thenReturn(
                 new DockerContainerLogs("ok", "docker-host-a", "sample", 25, 12,
-                        false, 0, "sample log
-", null));
+                        false, 0, "sample log\\n", null));
         DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
                 inventory, logs, new ObjectMapper());
         HomelabToolCatalog catalog = new HomelabToolCatalog(docker);

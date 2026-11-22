@@ -13,6 +13,7 @@ import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryU
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerContainerLogsUseCase;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerStats;
 import com.ikoyski.homelab.management.mcp.proxmox.ProxmoxInventoryService;
 import java.time.Instant;
 import java.util.List;
@@ -38,14 +39,15 @@ class CombinedToolRepositoryTest {
             "list_docker_containers",
             "list_docker_networks",
             "get_docker_inventory",
-            "get_docker_container_logs");
+            "get_docker_container_logs",
+            "get_docker_container_stats");
 
     @Test
-    void modernAdapterAdvertisesTheSharedElevenToolCatalogWhenPortainerIsConfigured() {
+    void modernAdapterAdvertisesTheSharedTwelveToolCatalogWhenPortainerIsConfigured() {
         HomelabToolCatalog catalog = configuredCatalog();
         CombinedToolRepository modernAdapter = new CombinedToolRepository(catalog);
 
-        assertEquals(11, catalog.toolNames().size());
+        assertEquals(12, catalog.toolNames().size());
         assertEquals(catalog.toolNames().size(), modernAdapter.list(null, null).tools().size());
 
         for (String name : PROXMOX_TOOLS) {
@@ -106,6 +108,43 @@ class CombinedToolRepositoryTest {
 
         assertTrue(response.contains("\"status\":\"ok\""));
         verify(useCase).collect("dev-pve");
+    }
+
+    @Test
+    void dockerStatsToolDeclaresOptionalFiltersAndDispatchesSnapshotRequest() {
+        DockerInventoryUseCase inventory = mock(DockerInventoryUseCase.class);
+        DockerContainerStats sample = new DockerContainerStats("dev-pve", "sample", "abcdef123456",
+                "ok", Instant.now(), 12.5, 1024L, 768L, 4096L, 18.75, 256L,
+                100L, 200L, 300L, 400L, null);
+        when(inventory.collectStats("dev-pve", "sample")).thenReturn(List.of(sample));
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                inventory, mock(DockerContainerLogsUseCase.class), new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
+
+        Map<String, Object> schema = catalog.toolInputSchema("get_docker_container_stats");
+        Map<String, Object> properties = (Map<String, Object>) schema.get("properties");
+        assertEquals(false, schema.get("additionalProperties"));
+        assertEquals(List.of(), schema.get("required"));
+        assertTrue(properties.containsKey("hostKey"));
+        assertTrue(properties.containsKey("containerName"));
+
+        String response = catalog.execute("get_docker_container_stats",
+                Map.of("hostKey", "dev-pve", "containerName", "sample"));
+        assertTrue(response.contains("\"cpuPercent\":12.5"));
+        assertTrue(response.contains("\"memoryWorkingSetBytes\":768"));
+        verify(inventory).collectStats("dev-pve", "sample");
+    }
+
+    @Test
+    void dockerStatsToolDefaultsToAllConfiguredHostsAndRunningContainers() {
+        DockerInventoryUseCase inventory = mock(DockerInventoryUseCase.class);
+        when(inventory.collectStats(null, null)).thenReturn(List.of());
+        DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
+                inventory, mock(DockerContainerLogsUseCase.class), new ObjectMapper());
+        HomelabToolCatalog catalog = new HomelabToolCatalog(docker);
+
+        assertEquals("[]", catalog.execute("get_docker_container_stats"));
+        verify(inventory).collectStats(null, null);
     }
 
     @Test

@@ -23,9 +23,11 @@ The MCP is a read-only discovery and diagnostic interface. The AI client is resp
 2. Review the complete inventory before choosing targets for deeper inspection. Prefer a small number of targeted calls over repeated broad calls.
 3. Reconcile totals before making claims: compare per-host counts with global totals, check that category subtotals sum correctly, and identify duplicate, missing, or inconsistent records. If a discrepancy cannot be resolved from the available results, report it explicitly as unresolved.
 4. Identify candidates for review using current state and available evidence. Do not treat a status field in isolation as proof of an incident.
-5. Retrieve bounded logs only for the exact configured host and container that needs diagnosis. Respect the tool's line and byte limits. Never try shell, exec, direct Docker access, or another access path if logs are unavailable.
-6. Correlate the targeted logs with inventory metadata and timestamps. Distinguish a confirmed finding from a plausible explanation or an unverified hypothesis.
-7. Finish with concise findings, limitations, and safe next steps. Do not perform remediation.
+5. For a host with high memory use or suspected CPU pressure, use `get_docker_container_stats` to obtain a live per-container snapshot. Prefer an exact `hostKey`; add an exact `containerName` when investigating one workload. Omit both only when a bounded fleet-wide sample is genuinely useful. The tool returns at most 100 container rows per call.
+6. Interpret stats carefully: CPU percentage is calculated from Docker's current and previous counters and may be null when deltas are unavailable. Memory includes raw usage and an estimated working set (usage minus the reported cache/inactive-file value); the displayed memory percentage uses working set divided by the container memory limit. Network RX/TX and block read/write are cumulative byte counters, not rates. This is a point-in-time sample, not historical monitoring, and it does not equal host physical memory accounting.
+7. Retrieve bounded logs only for the exact configured host and container that needs diagnosis. Respect the tool's line and byte limits. Never try shell, exec, direct Docker access, or another access path if logs are unavailable.
+8. Correlate targeted stats and logs with inventory metadata and timestamps. Distinguish a confirmed finding from a plausible explanation or an unverified hypothesis.
+9. Finish with concise findings, limitations, and safe next steps. Do not perform remediation.
 
 ## 3. Interpret infrastructure state conservatively
 

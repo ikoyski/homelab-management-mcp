@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerInventory;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerStats;
 import com.ikoyski.homelab.management.mcp.portainer.client.DockerLogPayload;
 import com.ikoyski.homelab.management.mcp.portainer.config.PortainerProperties;
 import com.ikoyski.homelab.management.mcp.portainer.discovery.PortainerEndpointResolver;
@@ -273,6 +274,138 @@ class PortainerDockerInventoryAdapterTest {
         assertThat(result.status()).isEqualTo("unavailable");
         assertThat(result.errorCode()).isEqualTo("container_not_found");
         verify(client, never()).getContainerLogs(7, CONTAINER_ID, 100);
+    }
+
+    @Test
+    void collectsCpuMemoryNetworkAndBlockIoStatsForAnExactDiscoveredContainer() throws Exception {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
+        when(client.listContainers(7)).thenReturn(mapper.readTree("""
+                [
+                  {"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789","Names":["/sample"],"State":"running"},
+                  {"Id":"bbbbbb0123456789abcdef0123456789abcdef0123456789abcdef0123456789","Names":["/ignored"],"State":"running"}
+                ]
+                """));
+        when(client.getContainerStats(7, CONTAINER_ID)).thenReturn(mapper.readTree("""
+                {
+                  "cpu_stats":{"cpu_usage":{"total_usage":300},"system_cpu_usage":2000,"online_cpus":2},
+                  "precpu_stats":{"cpu_usage":{"total_usage":100},"system_cpu_usage":1000},
+                  "memory_stats":{"usage":1024,"limit":4096,"stats":{"inactive_file":256}},
+                  "networks":{"eth0":{"rx_bytes":1000,"tx_bytes":2000},"eth1":{"rx_bytes":10,"tx_bytes":20}},
+                  "blkio_stats":{"io_service_bytes_recursive":[
+                    {"op":"Read","value":500},{"op":"Write","value":600},{"op":"Sync","value":900}
+                  ]}
+                }
+                """));
+
+        List<DockerContainerStats> result = adapter(client, resolver).collectStats("docker-host-a", "sample");
+
+        assertThat(result).singleElement().satisfies(stats -> {
+            assertThat(stats.status()).isEqualTo("ok");
+            assertThat(stats.cpuPercent()).isEqualTo(40.0);
+            assertThat(stats.memoryUsageBytes()).isEqualTo(1024L);
+            assertThat(stats.memoryWorkingSetBytes()).isEqualTo(768L);
+            assertThat(stats.memoryLimitBytes()).isEqualTo(4096L);
+            assertThat(stats.memoryUsagePercent()).isEqualTo(18.75);
+            assertThat(stats.memoryCacheBytes()).isEqualTo(256L);
+            assertThat(stats.networkRxBytes()).isEqualTo(1010L);
+            assertThat(stats.networkTxBytes()).isEqualTo(2020L);
+            assertThat(stats.blockReadBytes()).isEqualTo(500L);
+            assertThat(stats.blockWriteBytes()).isEqualTo(600L);
+        });
+        verify(client).getContainerStats(7, CONTAINER_ID);
+        verify(client, never()).getContainerStats(7, "bbbbbb0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
+    }
+
+    @Test
+    void reportsExactContainerNotFoundWithoutRequestingStats() throws Exception {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
+        when(client.listContainers(7)).thenReturn(mapper.readTree("""
+                [{"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                  "Names":["/another"],"State":"running"}]
+                """));
+
+        List<DockerContainerStats> result = adapter(client, resolver).collectStats("docker-host-a", "sample");
+
+        assertThat(result).singleElement().satisfies(stats -> {
+            assertThat(stats.status()).isEqualTo("unavailable");
+            assertThat(stats.errorCode()).isEqualTo("container_not_found");
+        });
+        verify(client, never()).getContainerStats(7, CONTAINER_ID);
+    }
+
+    @Test
+    void reportsStoppedExactContainerWithoutCallingDockerStatsEndpoint() throws Exception {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
+        when(client.listContainers(7)).thenReturn(mapper.readTree("""
+                [{"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                  "Names":["/sample"],"State":"exited"}]
+                """));
+
+        List<DockerContainerStats> result = adapter(client, resolver).collectStats("docker-host-a", "sample");
+
+        assertThat(result).singleElement().satisfies(stats ->
+                assertThat(stats.errorCode()).isEqualTo("container_not_running"));
+        verify(client, never()).getContainerStats(7, CONTAINER_ID);
+    }
+
+    @Test
+    void isolatesAStatsEndpointFailureToTheAffectedContainer() throws Exception {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
+        when(client.listContainers(7)).thenReturn(mapper.readTree("""
+                [{"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                  "Names":["/sample"],"State":"running"}]
+                """));
+        when(client.getContainerStats(7, CONTAINER_ID))
+                .thenThrow(new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE));
+
+        List<DockerContainerStats> result = adapter(client, resolver).collectStats("docker-host-a", "sample");
+
+        assertThat(result).singleElement().satisfies(stats -> {
+            assertThat(stats.status()).isEqualTo("unavailable");
+            assertThat(stats.errorCode()).isEqualTo("environment_unavailable");
+        });
+    }
+
+    @Test
+    void leavesUnavailableCpuAndMemoryMetricsNullWhenDockerCountersAreMissing() throws Exception {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+        when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
+        when(client.listContainers(7)).thenReturn(mapper.readTree("""
+                [{"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                  "Names":["/sample"],"State":"running"}]
+                """));
+        when(client.getContainerStats(7, CONTAINER_ID)).thenReturn(mapper.readTree("{}"));
+
+        List<DockerContainerStats> result = adapter(client, resolver).collectStats("docker-host-a", "sample");
+
+        assertThat(result).singleElement().satisfies(stats -> {
+            assertThat(stats.status()).isEqualTo("ok");
+            assertThat(stats.cpuPercent()).isNull();
+            assertThat(stats.memoryUsageBytes()).isNull();
+            assertThat(stats.memoryWorkingSetBytes()).isNull();
+            assertThat(stats.memoryUsagePercent()).isNull();
+        });
+    }
+
+    @Test
+    void rejectsInvalidStatsFiltersBeforeCallingPortainer() {
+        PortainerApiClient client = mock(PortainerApiClient.class);
+        PortainerEndpointResolver resolver = mock(PortainerEndpointResolver.class);
+
+        assertThatThrownBy(() -> adapter(client, resolver).collectStats("unconfigured-host", null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> adapter(client, resolver).collectStats("docker-host-a", "../container"))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(client, resolver);
     }
 
     private static byte[] dockerFrame(int streamType, String value) {

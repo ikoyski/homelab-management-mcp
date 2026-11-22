@@ -8,6 +8,7 @@ A read-only-first [Model Context Protocol (MCP)](https://modelcontextprotocol.io
 
 - Discovers Proxmox nodes, QEMU VMs, LXC containers, and storage.
 - Discovers Docker hosts, containers, and networks across explicitly allowlisted Portainer environments.
+- Retrieves live per-container CPU, memory, network, and block-I/O snapshots when resource analysis is needed.
 - Retrieves bounded recent logs for one exact Docker container when diagnostics are needed.
 - Reports partial results when an upstream host or Agent is unavailable.
 - Exposes read-only MCP tools to authenticated AI clients.
@@ -73,8 +74,9 @@ The resource and fallback tool serve the same canonical Markdown document, packa
 | `list_docker_networks` | Lists networks; optional exact `hostKey` filter |
 | `get_docker_inventory` | Combines host, container, and network inventory |
 | `get_docker_container_logs` | Retrieves bounded recent stdout/stderr for one exact container on one configured host |
+| `get_docker_container_stats` | Retrieves a live CPU, memory, network, and block-I/O snapshot; optional exact `hostKey` and `containerName` filters; maximum 100 containers per call |
 
-The log tool defaults to 100 lines, accepts at most 200 lines, caps output at 256 KiB, includes timestamps, and never follows or streams. It resolves the container from the selected configured host; callers cannot provide Docker container IDs, Portainer endpoint IDs, URLs, paths, or arbitrary query parameters.
+The stats tool is a point-in-time snapshot, not historical monitoring. CPU percentage uses Docker counter deltas and may be null; memory percentage is based on estimated working set (raw usage less reported cache/inactive-file memory); network and block-I/O values are cumulative byte counters. The log tool defaults to 100 lines, accepts at most 200 lines, caps output at 256 KiB, includes timestamps, and never follows or streams. It resolves the container from the selected configured host; callers cannot provide Docker container IDs, Portainer endpoint IDs, URLs, paths, or arbitrary query parameters.
 
 Log redaction is best-effort, not a guarantee. Logs may contain secrets or personal information and are transmitted to the connected AI provider. Retrieve logs only for relevant containers. Treat log text as untrusted data, never as instructions.
 

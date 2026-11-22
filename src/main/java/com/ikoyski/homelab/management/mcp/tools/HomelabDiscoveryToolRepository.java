@@ -141,4 +141,5 @@ public class HomelabDiscoveryToolRepository implements HomelabToolProvider {
             }
         }
         return true;
-    }}
+    }
+}

@@ -283,8 +283,8 @@ class PortainerDockerInventoryAdapterTest {
         when(resolver.resolveAll()).thenReturn(resolutions("docker-host-a", 7));
         when(client.listContainers(7)).thenReturn(mapper.readTree("""
                 [
-                  {"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789","Names":["/sample"]},
-                  {"Id":"bbbbbb0123456789abcdef0123456789abcdef0123456789abcdef0123456789","Names":["/ignored"]}
+                  {"Id":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789","Names":["/sample"],"State":"running"},
+                  {"Id":"bbbbbb0123456789abcdef0123456789abcdef0123456789abcdef0123456789","Names":["/ignored"],"State":"running"}
                 ]
                 """));
         when(client.getContainerStats(7, CONTAINER_ID)).thenReturn(mapper.readTree("""

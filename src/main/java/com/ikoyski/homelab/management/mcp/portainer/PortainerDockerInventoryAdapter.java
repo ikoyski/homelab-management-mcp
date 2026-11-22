@@ -3,6 +3,7 @@ package com.ikoyski.homelab.management.mcp.portainer;
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerInventoryProvider;
 import com.ikoyski.homelab.management.mcp.inventory.application.DockerContainerLogsProvider;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerLogs;
+import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainerStats;
 import com.ikoyski.homelab.management.mcp.portainer.client.DockerLogPayload;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerContainer;
 import com.ikoyski.homelab.management.mcp.inventory.model.DockerHost;
@@ -278,6 +279,145 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider,
             log.warn("Portainer Docker log retrieval failed errorCode={}", code);
             return logFailure(hostKey, containerName, tail, code);
         }
+    }
+
+    @Override
+    public List<DockerContainerStats> collectStats(String hostKey, String containerName) {
+        List<String> hosts = requestedHosts(hostKey);
+        if (containerName != null && !containerName.matches("[A-Za-z0-9][A-Za-z0-9_.-]{0,254}")) {
+            throw new IllegalArgumentException("containerName must be an exact discovered name");
+        }
+        List<DockerContainerStats> result = new ArrayList<>();
+        Map<String, EndpointResolution> resolutions;
+        try {
+            resolutions = resolver.resolveAll();
+        } catch (Exception ex) {
+            String code = errorCode(ex);
+            for (String host : hosts) {
+                result.add(statsFailure(host, containerName, null, code));
+            }
+            return List.copyOf(result);
+        }
+
+        // Bound one tool invocation so a large fleet cannot fan out unbounded upstream calls.
+        final int maxContainers = 100;
+        for (String host : hosts) {
+            EndpointResolution resolution = resolutions.get(host);
+            if (resolution == null || !resolution.isResolved()) {
+                result.add(statsFailure(host, containerName, null, resolutionErrorCode(resolution)));
+                continue;
+            }
+            try {
+                JsonNode listed = client.listContainers(resolution.endpointId());
+                if (listed == null || !listed.isArray()) {
+                    throw new IllegalStateException("unexpected_response");
+                }
+                for (JsonNode item : listed) {
+                    String id = text(item, "Id");
+                    String name = firstName(item.path("Names"));
+                    if (id == null || !id.matches("[a-fA-F0-9]{12,64}") || name == null
+                            || (containerName != null && !containerName.equals(name))) {
+                        continue;
+                    }
+                    if (result.size() >= maxContainers) {
+                        result.add(statsFailure(host, null, null, "result_limit_reached"));
+                        return List.copyOf(result);
+                    }
+                    try {
+                        JsonNode snapshot = client.getContainerStats(resolution.endpointId(), id);
+                        result.add(mapStats(host, name, id, snapshot));
+                    } catch (Exception ex) {
+                        result.add(statsFailure(host, name, id, errorCode(ex)));
+                    }
+                }
+            } catch (Exception ex) {
+                result.add(statsFailure(host, containerName, null, errorCode(ex)));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static DockerContainerStats statsFailure(String host, String name, String id, String code) {
+        return new DockerContainerStats(host, name, id, "unavailable", Instant.now(),
+                null, null, null, null, null, null, null, null, null, null, code);
+    }
+
+    private static DockerContainerStats mapStats(String host, String name, String id, JsonNode stats) {
+        if (stats == null || !stats.isObject()) {
+            return statsFailure(host, name, id, "unexpected_response");
+        }
+        JsonNode cpu = stats.path("cpu_stats");
+        JsonNode previousCpu = stats.path("precpu_stats");
+        long cpuDelta = numeric(cpu.path("cpu_usage").path("total_usage"))
+                - numeric(previousCpu.path("cpu_usage").path("total_usage"));
+        long systemDelta = numeric(cpu.path("system_cpu_usage"))
+                - numeric(previousCpu.path("system_cpu_usage"));
+        long onlineCpus = numeric(cpu.path("online_cpus"));
+        if (onlineCpus <= 0) {
+            JsonNode perCpu = cpu.path("cpu_usage").path("percpu_usage");
+            onlineCpus = perCpu.isArray() ? perCpu.size() : 0;
+        }
+        Double cpuPercent = cpuDelta > 0 && systemDelta > 0 && onlineCpus > 0
+                ? (double) cpuDelta / (double) systemDelta * onlineCpus * 100.0 : null;
+
+        JsonNode memory = stats.path("memory_stats");
+        Long memoryUsage = optionalNumeric(memory.get("usage"));
+        Long memoryLimit = optionalNumeric(memory.get("limit"));
+        JsonNode memoryDetails = memory.path("stats");
+        Long cache = optionalNumeric(memoryDetails.get("cache"));
+        if (cache == null) {
+            cache = optionalNumeric(memoryDetails.get("inactive_file"));
+        }
+        if (cache == null) {
+            cache = optionalNumeric(memoryDetails.get("total_inactive_file"));
+        }
+        Long workingSet = memoryUsage == null ? null
+                : Math.max(0L, memoryUsage - (cache == null ? 0L : cache));
+        Double memoryPercent = workingSet != null && memoryLimit != null && memoryLimit > 0
+                ? (double) workingSet / memoryLimit * 100.0 : null;
+
+        long rx = 0L;
+        long tx = 0L;
+        JsonNode networks = stats.path("networks");
+        if (networks.isObject()) {
+            for (String network : networks.propertyNames()) {
+                JsonNode counters = networks.get(network);
+                rx = saturatedAdd(rx, numeric(counters.path("rx_bytes")));
+                tx = saturatedAdd(tx, numeric(counters.path("tx_bytes")));
+            }
+        }
+
+        long blockRead = 0L;
+        long blockWrite = 0L;
+        JsonNode ioEntries = stats.path("blkio_stats").path("io_service_bytes_recursive");
+        if (ioEntries.isArray()) {
+            for (JsonNode entry : ioEntries) {
+                long value = numeric(entry.path("value"));
+                String operation = text(entry, "op");
+                if ("read".equalsIgnoreCase(operation)) {
+                    blockRead = saturatedAdd(blockRead, value);
+                } else if ("write".equalsIgnoreCase(operation)) {
+                    blockWrite = saturatedAdd(blockWrite, value);
+                }
+            }
+        }
+        return new DockerContainerStats(host, name, id, "ok", Instant.now(), cpuPercent,
+                memoryUsage, workingSet, memoryLimit, memoryPercent, cache, rx, tx,
+                blockRead, blockWrite, null);
+    }
+
+    private static long numeric(JsonNode node) {
+        return node != null && node.isNumber() && node.canConvertToLong()
+                ? Math.max(0L, node.longValue()) : 0L;
+    }
+
+    private static Long optionalNumeric(JsonNode node) {
+        return node != null && node.isNumber() && node.canConvertToLong()
+                ? Math.max(0L, node.longValue()) : null;
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        return Long.MAX_VALUE - left < right ? Long.MAX_VALUE : left + right;
     }
 
     private static DockerContainerLogs logFailure(String hostKey, String containerName, int tail, String code) {

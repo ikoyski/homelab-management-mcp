@@ -1,6 +1,6 @@
 # Homelab Management MCP — Project Instructions
 
-> Shared operating rules for Claude, Gemini, Grok, and other AI clients. This file remains the detailed repository engineering guide.
+> Repository engineering and security instructions for Claude Code and other coding agents. Gemini CLI can also load this file when configured to use `CLAUDE.md` as a context filename.
 
 @AI-CLIENT-GUIDANCE.md
 
@@ -80,9 +80,9 @@ Read [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for the current handoff an
 
 ## AI client integration status
 
-- Claude Code: follow this file and `AI-CLIENT-GUIDANCE.md`.
-- Gemini: follow `GEMINI.md` and `AI-CLIENT-GUIDANCE.md`.
-- Grok and other clients without repository-native instruction discovery: explicitly provide or ask the client to read `AI-CLIENT-GUIDANCE.md` at the start of a homelab session. The file is provider-neutral; do not assume a client automatically loads it.
+- Claude Code: follow this file for repository work. Its imported `AI-CLIENT-GUIDANCE.md` contains the separate operating policy for homelab analysis and diagnostics.
+- Gemini CLI: can use this file as its repository instruction file when its `context.fileName` setting includes `CLAUDE.md`. This avoids maintaining a duplicate Gemini-specific instruction file.
+- Hosted Gemini and Grok clients connecting to the MCP do not automatically read repository Markdown files merely because they connect to the server. Provide `AI-CLIENT-GUIDANCE.md` explicitly until the guidance is exposed through an MCP-supported mechanism.
 
 
 The Auth Server pre-registers provider-specific Homelab clients. A client registration alone does not prove that OAuth authorization, MCP initialization, tool discovery, or authenticated tool execution succeeded. Keep these as distinct validation stages.

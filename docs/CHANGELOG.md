@@ -6,7 +6,7 @@ Notable project changes are recorded here in reverse chronological order. This i
 
 ### Documentation
 - Added provider-neutral `AI-CLIENT-GUIDANCE.md` covering privacy, inventory-first diagnostics, conservative state interpretation, optional standalone HTML reporting, untrusted-content handling, and the read-only boundary.
-- Added `GEMINI.md` and linked the shared guidance from `CLAUDE.md` and the public README. Clients without automatic repository-instruction discovery must be explicitly given the shared guide.
+- Clarified the separation between MCP-facing AI-client guidance and repository-agent instructions. Repository continuity remains in `CLAUDE.md` and `docs/PROJECT-STATUS.md`; the redundant `GEMINI.md` file was removed, with Gemini CLI able to use `CLAUDE.md` through its context-file configuration.
 - Updated the project handoff to record successful operator-directed inventory-to-report exercises through Claude, Gemini, and Grok. Report generation remains client-side; no MCP tool or server-side reporting feature was introduced.
 
 ## 2026-11-21

@@ -78,14 +78,15 @@ Follow these guides in order. They are written for new installations and can als
 5. [Private configuration and deployment](docs/setup/configuration-and-deployment.md) — configure Spring Config Server, runtime secrets, Docker Compose, health checks, and tunnel routing.
 6. [AI client connection and validation](docs/setup/ai-client.md) — configure OAuth/MCP access and safely test inventory and logs.
 
-For maintainers and coding agents:
-- [Shared AI-client operating guidance](AI-CLIENT-GUIDANCE.md) — provider-neutral privacy, inventory interpretation, targeted diagnostics, optional report generation, and read-only rules for Claude, Gemini, Grok, and other clients. Clients that do not automatically load repository instructions should be explicitly given this file at session start.
-- [Gemini project instructions](GEMINI.md)
+For AI clients using the MCP:
+- [AI client operating guidance](AI-CLIENT-GUIDANCE.md) — provider-neutral privacy, inventory interpretation, targeted diagnostics, optional report generation, and read-only rules. This guide is for homelab analysis, not repository maintenance. Hosted clients do not automatically read repository files through an MCP connection; provide the guide explicitly until it is exposed through MCP.
+
+For repository maintainers and coding agents:
+- [CLAUDE.md](CLAUDE.md) — repository-specific engineering, security, and continuity instructions. Claude Code loads it as project instructions; Gemini CLI can use the same file when configured to include `CLAUDE.md` in `context.fileName`.
 - [Project status and handoff](docs/PROJECT-STATUS.md)
 - [Architecture decisions](docs/architecture/decisions/)
 - [Modular monolith architecture](docs/architecture/modular-monolith.md)
 - [Release 2 Docker architecture](docs/architecture/release-2-docker-inventory.md)
-- [CLAUDE.md](CLAUDE.md) — repository-specific engineering and security rules
 - [Changelog](docs/CHANGELOG.md)
 
 ## Security model

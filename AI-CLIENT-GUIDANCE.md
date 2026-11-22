@@ -1,6 +1,6 @@
 # AI Client Operating Guidance
 
-This file defines provider-neutral operating rules for AI assistants using the Homelab Management MCP or working in this repository. It is intended to be shared by Claude, Gemini, Grok, and other clients. Read it at the start of a homelab analysis session and whenever its policies are relevant.
+This file defines provider-neutral operating rules for AI assistants using the Homelab Management MCP. It is intended for Claude, Gemini, Grok, and other connected clients. It covers safe homelab analysis, diagnostics, and optional reporting; it does not define repository-maintenance or coding-agent workflows.
 
 The MCP is a read-only discovery and diagnostic interface. The AI client is responsible for using the tools selectively, interpreting their results cautiously, protecting returned data, and keeping any generated report separate from infrastructure operations.
 
@@ -74,11 +74,3 @@ A report is a point-in-time interpretation of the data returned during that sess
 - Ask for explicit operator approval before any operation outside read-only discovery/diagnostics. If the requested operation is not supported or would cross the project's read-only boundary, explain that limitation rather than improvising another access path.
 - Do not change private runtime configuration, credentials, allowlists, certificates, network boundaries, or deployments without explicit approval.
 
-## 6. Session handoff
-
-When continuing work:
-- Read `docs/PROJECT-STATUS.md`, `CLAUDE.md`, `README.md`, this guidance, and the relevant architecture/ADR documents.
-- Verify current code, merged PRs, CI, and actual deployment state before claiming a change or test is complete.
-- Keep proposed, implemented, merged, CI-verified, and deployed states distinct.
-- Keep live infrastructure identifiers and runtime configuration out of this public repository.
-- Update the project handoff and changelog when durable milestones or decisions change.

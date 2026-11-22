@@ -312,11 +312,19 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider,
                 if (listed == null || !listed.isArray()) {
                     throw new IllegalStateException("unexpected_response");
                 }
+                boolean exactContainerFound = false;
                 for (JsonNode item : listed) {
                     String id = text(item, "Id");
                     String name = firstName(item.path("Names"));
                     if (id == null || !id.matches("[a-fA-F0-9]{12,64}") || name == null
                             || (containerName != null && !containerName.equals(name))) {
+                        continue;
+                    }
+                    exactContainerFound = true;
+                    if (!"running".equalsIgnoreCase(text(item, "State"))) {
+                        if (containerName != null) {
+                            result.add(statsFailure(host, name, id, "container_not_running"));
+                        }
                         continue;
                     }
                     if (result.size() >= maxContainers) {
@@ -329,6 +337,9 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider,
                     } catch (Exception ex) {
                         result.add(statsFailure(host, name, id, errorCode(ex)));
                     }
+                }
+                if (containerName != null && !exactContainerFound) {
+                    result.add(statsFailure(host, containerName, null, "container_not_found"));
                 }
             } catch (Exception ex) {
                 result.add(statsFailure(host, containerName, null, errorCode(ex)));

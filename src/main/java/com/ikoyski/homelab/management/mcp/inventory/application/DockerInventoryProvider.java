@@ -15,7 +15,5 @@ public interface DockerInventoryProvider {
      * Collects a live, read-only resource snapshot. A null hostKey selects all
      * configured hosts; a null containerName selects all discovered containers.
      */
-    default List<DockerContainerStats> collectStats(String hostKey, String containerName) {
-        throw new UnsupportedOperationException("Docker resource statistics are not supported");
-    }
+    List<DockerContainerStats> collectStats(String hostKey, String containerName);
 }

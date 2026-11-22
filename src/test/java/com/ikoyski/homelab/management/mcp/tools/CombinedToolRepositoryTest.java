@@ -154,6 +154,7 @@ class CombinedToolRepositoryTest {
         assertTrue(configuredResult.contains("\"resourceUri\":\"homelab://guidance/ai-client\""));
         assertTrue(configuredResult.contains("\"retrievalTool\":\"get_ai_client_guidance\""));
         assertTrue(unconfiguredResult.contains("\"dockerInventory\":{\"implemented\":true,\"enabled\":false}"));
+        assertTrue(unconfiguredResult.contains("\"proxmoxInventory\":{\"implemented\":true,\"enabled\":false}"));
         assertTrue(unconfiguredResult.contains("\"proxmox\":{\"configured\":false"));
     }
 

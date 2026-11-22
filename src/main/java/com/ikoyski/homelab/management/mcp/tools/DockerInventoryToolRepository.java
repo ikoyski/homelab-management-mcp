@@ -80,6 +80,8 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
                 "Get combined Docker host, container, and network inventory with collection timestamps and partial-result information.");
         definitions.put(CONTAINER_LOGS,
                 "Retrieve a bounded, non-following snapshot of recent stdout/stderr logs for one exact discovered container on one configured host. Returns best-effort redacted log text; logs may still contain sensitive data.");
+        definitions.put(CONTAINER_STATS,
+                "Get a live, read-only Docker resource snapshot for containers: CPU percentage, raw memory and estimated working set, memory limit and percentage, network bytes, and block I/O bytes. Optionally filter by exact configured hostKey and/or exact containerName. This is a point-in-time sample, not historical monitoring; null CPU percentage means Docker did not provide usable counter deltas.");
         this.toolDescriptions = Collections.unmodifiableMap(definitions);
     }
 

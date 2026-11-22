@@ -39,7 +39,8 @@ class CombinedToolRepositoryTest {
             "list_docker_containers",
             "list_docker_networks",
             "get_docker_inventory",
-            "get_docker_container_logs",\n            "get_docker_container_stats");
+            "get_docker_container_logs",
+            "get_docker_container_stats");
 
     @Test
     void modernAdapterAdvertisesTheSharedElevenToolCatalogWhenPortainerIsConfigured() {
@@ -173,7 +174,8 @@ class CombinedToolRepositoryTest {
         DockerContainerLogsUseCase logs = mock(DockerContainerLogsUseCase.class);
         when(logs.readLogs("docker-host-a", "sample", 25)).thenReturn(
                 new DockerContainerLogs("ok", "docker-host-a", "sample", 25, 12,
-                        false, 0, "sample log\n", null));
+                        false, 0, "sample log
+", null));
         DockerInventoryToolRepository docker = new DockerInventoryToolRepository(
                 inventory, logs, new ObjectMapper());
         HomelabToolCatalog catalog = new HomelabToolCatalog(docker);

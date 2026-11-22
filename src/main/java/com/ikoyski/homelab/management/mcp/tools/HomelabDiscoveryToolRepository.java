@@ -92,23 +92,13 @@ public class HomelabDiscoveryToolRepository implements HomelabToolProvider {
         boolean portainerConfigured = hasRequiredProperties("homelab.docker.portainer.base-url");
 
         Map<String, Object> capabilities = new LinkedHashMap<>();
-        capabilities.put("proxmoxInventory", Map.of(
-                "implemented", true,
-                "enabled", true));
-        capabilities.put("dockerInventory", Map.of(
-                "implemented", true,
-                "enabled", portainerConfigured));
-        capabilities.put("boundedDockerLogs", Map.of(
-                "implemented", true,
-                "enabled", portainerConfigured));
+        capabilities.put("proxmoxInventory", capability(true));
+        capabilities.put("dockerInventory", capability(portainerConfigured));
+        capabilities.put("boundedDockerLogs", capability(portainerConfigured));
 
         Map<String, Object> integrations = new LinkedHashMap<>();
-        integrations.put("proxmox", Map.of(
-                "configured", proxmoxConfigured,
-                "connectivityChecked", false));
-        integrations.put("portainer", Map.of(
-                "configured", portainerConfigured,
-                "connectivityChecked", false));
+        integrations.put("proxmox", integration(proxmoxConfigured));
+        integrations.put("portainer", integration(portainerConfigured));
 
         Map<String, Object> discoveryScope = new LinkedHashMap<>();
         discoveryScope.put("configuredTargetCount", safeTargets.size());
@@ -136,6 +126,20 @@ public class HomelabDiscoveryToolRepository implements HomelabToolProvider {
         result.put("guidance", guidance);
         result.put("message",
                 "Configuration presence does not verify upstream connectivity or service health.");
+        return result;
+    }
+
+    private static Map<String, Object> capability(boolean enabled) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("implemented", true);
+        result.put("enabled", enabled);
+        return result;
+    }
+
+    private static Map<String, Object> integration(boolean configured) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("configured", configured);
+        result.put("connectivityChecked", false);
         return result;
     }
 

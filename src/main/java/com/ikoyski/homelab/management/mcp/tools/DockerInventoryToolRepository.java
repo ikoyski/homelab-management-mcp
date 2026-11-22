@@ -100,7 +100,10 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
         if (HOST_FILTER_TOOLS.contains(name)) {
             return HOST_FILTER_SCHEMA;
         }
-        if (CONTAINER_LOGS.equals(name)) {\n            return CONTAINER_LOGS_SCHEMA;\n        }\n        return CONTAINER_STATS.equals(name) ? CONTAINER_STATS_SCHEMA : HomelabToolProvider.super.toolInputSchema(name);
+        if (CONTAINER_LOGS.equals(name)) {
+            return CONTAINER_LOGS_SCHEMA;
+        }
+        return CONTAINER_STATS.equals(name) ? CONTAINER_STATS_SCHEMA : HomelabToolProvider.super.toolInputSchema(name);
     }
 
     @Override
@@ -111,7 +114,11 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
     @Override
     public String execute(String name, Map<String, Object> arguments) {
         try {
-            if (CONTAINER_STATS.equals(name)) {\n                StatsRequest request = statsRequest(arguments);\n                return mapper.writeValueAsString(inventory.collectStats(request.hostKey(), request.containerName()));\n            }\n            if (CONTAINER_LOGS.equals(name)) {
+            if (CONTAINER_STATS.equals(name)) {
+                StatsRequest request = statsRequest(arguments);
+                return mapper.writeValueAsString(inventory.collectStats(request.hostKey(), request.containerName()));
+            }
+            if (CONTAINER_LOGS.equals(name)) {
                 LogRequest request = logRequest(arguments);
                 DockerContainerLogs result = containerLogs.readLogs(
                         request.hostKey(), request.containerName(), request.tail());

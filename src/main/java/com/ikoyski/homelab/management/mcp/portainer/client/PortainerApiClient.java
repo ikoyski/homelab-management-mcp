@@ -39,9 +39,7 @@ public class PortainerApiClient {
 
     public JsonNode inspectContainer(int discoveredEndpointId, String discoveredContainerId) {
         int endpointId = requireEndpointId(discoveredEndpointId);
-        if (discoveredContainerId == null || !discoveredContainerId.matches("[a-fA-F0-9]{12,64}")) {
-            throw new IllegalArgumentException("Discovered Docker container ID is invalid");
-        }
+        requireContainerId(discoveredContainerId);
         return restClient.get()
                 .uri("/api/endpoints/{id}/docker/containers/{containerId}/json",
                         endpointId, discoveredContainerId)
@@ -50,14 +48,32 @@ public class PortainerApiClient {
     }
 
     /**
+     * Retrieves one non-streaming Docker stats snapshot for a container discovered
+     * by this adapter. The public caller cannot provide an endpoint or container ID.
+     */
+    public JsonNode getContainerStats(int discoveredEndpointId, String discoveredContainerId) {
+        int endpointId = requireEndpointId(discoveredEndpointId);
+        requireContainerId(discoveredContainerId);
+        return restClient.get()
+                .uri("/api/endpoints/{id}/docker/containers/{containerId}/stats?stream=false",
+                        endpointId, discoveredContainerId)
+                .retrieve()
+                .body(JsonNode.class);
+    }
+
+    private static void requireContainerId(String discoveredContainerId) {
+        if (discoveredContainerId == null || !discoveredContainerId.matches("[a-fA-F0-9]{12,64}")) {
+            throw new IllegalArgumentException("Discovered Docker container ID is invalid");
+        }
+    }
+
+    /**
      * Retrieves a bounded, non-following log snapshot for a container discovered by this
      * adapter. The caller cannot supply an API path, query string, or arbitrary container ID.
      */
     public DockerLogPayload getContainerLogs(int discoveredEndpointId, String discoveredContainerId, int tail) {
         int endpointId = requireEndpointId(discoveredEndpointId);
-        if (discoveredContainerId == null || !discoveredContainerId.matches("[a-fA-F0-9]{12,64}")) {
-            throw new IllegalArgumentException("Discovered Docker container ID is invalid");
-        }
+        requireContainerId(discoveredContainerId);
         if (tail < 1 || tail > 200) {
             throw new IllegalArgumentException("tail must be between 1 and 200");
         }

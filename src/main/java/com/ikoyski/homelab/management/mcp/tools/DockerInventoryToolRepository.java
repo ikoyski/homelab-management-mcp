@@ -26,6 +26,7 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
     private static final String NETWORKS = "list_docker_networks";
     private static final String INVENTORY = "get_docker_inventory";
     private static final String CONTAINER_LOGS = "get_docker_container_logs";
+    private static final String CONTAINER_STATS = "get_docker_container_stats";
     private static final Set<String> HOST_FILTER_TOOLS = Set.of(CONTAINERS, NETWORKS);
     private static final Map<String, Object> CONTAINER_LOGS_SCHEMA = Map.of(
             "type", "object",
@@ -37,6 +38,16 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
                     "tail", Map.of("type", "integer", "minimum", 1, "maximum", 200,
                             "description", "Maximum number of recent log lines. Defaults to 100; maximum 200.")),
             "required", List.of("hostKey", "containerName"),
+            "additionalProperties", false);
+
+    private static final Map<String, Object> CONTAINER_STATS_SCHEMA = Map.of(
+            "type", "object",
+            "properties", Map.of(
+                    "hostKey", Map.of("type", "string", "minLength", 1, "maxLength", 63,
+                            "description", "Optional exact configured Docker host key."),
+                    "containerName", Map.of("type", "string", "minLength", 1, "maxLength", 255,
+                            "description", "Optional exact discovered container name. Omit to sample all containers.")),
+            "required", List.of(),
             "additionalProperties", false);
 
     private static final Map<String, Object> HOST_FILTER_SCHEMA = Map.of(
@@ -87,7 +98,7 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
         if (HOST_FILTER_TOOLS.contains(name)) {
             return HOST_FILTER_SCHEMA;
         }
-        return CONTAINER_LOGS.equals(name) ? CONTAINER_LOGS_SCHEMA : HomelabToolProvider.super.toolInputSchema(name);
+        if (CONTAINER_LOGS.equals(name)) {\n            return CONTAINER_LOGS_SCHEMA;\n        }\n        return CONTAINER_STATS.equals(name) ? CONTAINER_STATS_SCHEMA : HomelabToolProvider.super.toolInputSchema(name);
     }
 
     @Override
@@ -98,7 +109,7 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
     @Override
     public String execute(String name, Map<String, Object> arguments) {
         try {
-            if (CONTAINER_LOGS.equals(name)) {
+            if (CONTAINER_STATS.equals(name)) {\n                StatsRequest request = statsRequest(arguments);\n                return mapper.writeValueAsString(inventory.collectStats(request.hostKey(), request.containerName()));\n            }\n            if (CONTAINER_LOGS.equals(name)) {
                 LogRequest request = logRequest(arguments);
                 DockerContainerLogs result = containerLogs.readLogs(
                         request.hostKey(), request.containerName(), request.tail());
@@ -147,6 +158,29 @@ public class DockerInventoryToolRepository implements HomelabToolProvider {
         return hostKey;
     }
 
+
+    private static StatsRequest statsRequest(Map<String, Object> arguments) {
+        Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;
+        if (!Set.of("hostKey", "containerName").containsAll(safeArguments.keySet())) {
+            throw new IllegalArgumentException("Only hostKey and containerName are supported");
+        }
+        String hostKey = optionalString(safeArguments.get("hostKey"), "hostKey", 63);
+        String containerName = optionalString(safeArguments.get("containerName"), "containerName", 255);
+        return new StatsRequest(hostKey, containerName);
+    }
+
+    private static String optionalString(Object value, String field, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String text) || text.isBlank() || text.length() > maxLength) {
+            throw new IllegalArgumentException(field + " must be a non-empty string within its length limit");
+        }
+        return text;
+    }
+
+    private record StatsRequest(String hostKey, String containerName) {
+    }
 
     private static LogRequest logRequest(Map<String, Object> arguments) {
         Map<String, Object> safeArguments = arguments == null ? Map.of() : arguments;

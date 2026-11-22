@@ -327,7 +327,7 @@ public class PortainerDockerInventoryAdapter implements DockerInventoryProvider,
                         }
                         continue;
                     }
-                    if (result.size() >= maxContainers) {
+                    if (result.size() >= maxContainers - 1) {
                         result.add(statsFailure(host, null, null, "result_limit_reached"));
                         return List.copyOf(result);
                     }

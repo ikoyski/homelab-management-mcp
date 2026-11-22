@@ -19,7 +19,7 @@ The MCP is a read-only discovery and diagnostic interface. The AI client is resp
 
 ## 2. Inventory-first diagnostic workflow
 
-1. Start with the available discovery-scope and combined inventory tools. Use Proxmox and Docker inventory as appropriate to the question.
+1. Start with `get_homelab_capabilities` to review the MCP's implemented capabilities, configured integrations, discovery-scope labels, read-only boundary, and guidance retrieval options. This is a configuration/capability summary, not a connectivity or health check. Then use the relevant combined Proxmox and/or Docker inventory tools for the question.
 2. Review the complete inventory before choosing targets for deeper inspection. Prefer a small number of targeted calls over repeated broad calls.
 3. Reconcile totals before making claims: compare per-host counts with global totals, check that category subtotals sum correctly, and identify duplicate, missing, or inconsistent records. If a discrepancy cannot be resolved from the available results, report it explicitly as unresolved.
 4. Identify candidates for review using current state and available evidence. Do not treat a status field in isolation as proof of an incident.

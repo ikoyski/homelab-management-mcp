@@ -92,7 +92,7 @@ public class HomelabDiscoveryToolRepository implements HomelabToolProvider {
         boolean portainerConfigured = hasRequiredProperties("homelab.docker.portainer.base-url");
 
         Map<String, Object> capabilities = new LinkedHashMap<>();
-        capabilities.put("proxmoxInventory", capability(true));
+        capabilities.put("proxmoxInventory", capability(proxmoxConfigured));
         capabilities.put("dockerInventory", capability(portainerConfigured));
         capabilities.put("boundedDockerLogs", capability(portainerConfigured));
 

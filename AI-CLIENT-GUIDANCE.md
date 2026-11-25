@@ -1,6 +1,6 @@
 # AI Client Operating Guidance
 
-This file defines provider-neutral operating rules for AI assistants using the Homelab Management MCP. It is intended for Claude, Gemini, Grok, and other connected clients. It covers safe homelab analysis, diagnostics, and optional reporting; it does not define repository-maintenance or coding-agent workflows.
+This file defines provider-neutral operating rules for AI assistants using the Homelab Management MCP. It is intended for Claude, Gemini, Grok, Google Antigravity CLI, Claude Code using providers such as OpenRouter, and other connected clients. It covers safe homelab analysis, diagnostics, and optional reporting; it does not define repository-maintenance or coding-agent workflows.
 
 The MCP is a read-only discovery and diagnostic interface. The AI client is responsible for using the tools selectively, interpreting their results cautiously, protecting returned data, and keeping any generated report separate from infrastructure operations.
 

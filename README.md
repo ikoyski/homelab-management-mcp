@@ -18,7 +18,7 @@ It does **not** start, stop, restart, create, delete, update, or exec into infra
 ## Architecture
 
 ```text
-              AI clients (Claude / Gemini / Grok / others)
+              AI clients (Claude / Gemini / Grok / Antigravity CLI / Claude Code via OpenRouter / others)
                                |
                       OAuth-authenticated MCP
                                |
@@ -151,7 +151,7 @@ Use mocks/fixtures for ordinary tests; production infrastructure credentials are
 
 ## Project status
 
-Proxmox inventory, Docker inventory, host-scoped container/network filters, and bounded container-log retrieval are implemented and deployed. Inventory and log-diagnostic workflows have been exercised through Claude, Gemini, and Grok. All three clients have also completed an operator-directed inventory-to-diagnostics-to-standalone-HTML-report exercise. Report generation remains an AI-client activity, not an MCP server feature. Live infrastructure names, counts, and mappings are intentionally omitted here.
+Proxmox inventory, Docker inventory, host-scoped container/network filters, and bounded container-log retrieval are implemented and deployed. Inventory and log-diagnostic workflows have been exercised through Claude, Gemini, Grok, Google Antigravity CLI, and Claude Code using OpenRouter. Claude, Gemini, and Grok have completed operator-directed inventory-to-diagnostics-to-standalone-HTML-report exercises; Antigravity CLI and Claude Code via OpenRouter have also completed read-only reporting exercises. Report generation remains an AI-client activity, not an MCP server feature. Separate client-generated reports on 2026-11-25 disagreed on the Docker container total (44 versus 58); neither total is treated as authoritative until the underlying tool responses are reconciled. Live infrastructure names, counts, and mappings are intentionally omitted here.
 
 See [docs/PROJECT-STATUS.md](docs/PROJECT-STATUS.md) for dated validation details. Historical observations there must not be mistaken for current live state.
 

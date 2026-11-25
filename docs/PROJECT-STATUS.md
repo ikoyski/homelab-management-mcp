@@ -2,7 +2,7 @@
 
 > **Purpose:** Canonical continuity record for maintainers and AI coding assistants. Update this file whenever a milestone, architecture decision, validation result, or deployment state changes.
 >
-> **Last updated:** 2026-11-22 (Asia/Manila)
+> **Last updated:** 2026-11-25 (Asia/Manila)
 > **Repository:** `ikoyski/homelab-management-mcp`
 > **Current focus:** Post-Release 2 validation, documentation, and maintenance
 
@@ -11,16 +11,17 @@
 | Area | Status | Notes |
 |---|---|---|
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; authenticated live inventory has been exercised by Claude Code, Grok, and Gemini. |
-| Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox inventory, Docker inventory, targeted logs, and standalone HTML report generation were exercised. |
+| Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox inventory, Docker inventory, targeted logs, and standalone HTML report generation were exercised. Claude Code was also validated using OpenRouter's `openrouter/free` model. |
 | Grok client integration | Validated | Proxmox and Docker inventory, targeted logs, and standalone HTML report generation were exercised. |
 | Gemini client integration | Validated | Gemini completed Proxmox/Docker inventory, hostKey filter parity checks, targeted logs, and standalone HTML report generation. |
+| Google Antigravity CLI integration | Validated 2026-11-25 | Completed Webtools-authenticated MCP access, capabilities/inventory retrieval, targeted Docker stats and bounded logs, and a read-only homelab report. |
 | Release 2 — Docker inventory | Implemented, merged, deployed, and live-validated | Claude Code, Grok, and Gemini exercised the five configured hosts. Gemini validated both host-scoped filters against global inventory: 43 containers and 23 networks. |
 | Portainer Server/Agent upgrade | Completed and validated | Server and all four Agents are on CE 2.45.4; all five configured environments reconnected and reported resources. |
 | Portainer TLS trust and endpoint mapping | Completed and validated | Java trust for the Portainer certificate is installed in the MCP runtime. Environment identities are supplied by private configuration; endpoint IDs are discovered dynamically. |
 | Separate Portainer Proxy | Abandoned | The separate repository is no longer part of the target architecture; the Portainer adapter lives inside this MCP. |
 | Portainer authorization boundary | Operational; credential risk documented | The adapter exposes only fixed GET operations, but the Portainer API key inherits its user's Administrator permissions. Treat the key as a high-impact credential. |
 | Bounded container log retrieval | Implemented, merged, deployed, and live-validated | `get_docker_container_logs` resolves one exact configured host and discovered container name, defaults tail to 100 (maximum 200), caps response bytes at 256 KiB, disables follow, decodes Docker log framing, and applies best-effort common-secret redaction. Live retrieval was confirmed through Claude, Gemini, and Grok. |
-| Cross-client AI reporting workflow | Validated as client-side workflow | Claude, Gemini, and Grok each completed an operator-directed inventory-first assessment, targeted diagnostics, and standalone HTML report. Report generation is not an MCP server feature. |
+| Cross-client AI reporting workflow | Validated as client-side workflow | Claude, Gemini, and Grok completed operator-directed inventory-first assessments, targeted diagnostics, and standalone HTML reports. Antigravity CLI and Claude Code via OpenRouter subsequently completed read-only reporting exercises. Report generation is not an MCP server feature. |
 | MCP AI guidance exposure | Implemented, merged, deployed; fallback-tool validation passed through Claude, Gemini, and Grok | All three tested client sessions called `get_homelab_capabilities`, retrieved the complete guide through `get_ai_client_guidance`, and confirmed `get_discovery_scope` is absent. None exposed an MCP resource-read operation, so direct retrieval from `homelab://guidance/ai-client` remains unverified; this is a client-surface limitation, not evidence of a server failure. |
 
 ## Release 1 — completed
@@ -115,6 +116,19 @@ PR #19 formalized the upgrade regression procedure in the Release 2 architecture
 
 Keep OAuth authorization, MCP initialization/tool discovery, and authenticated tool execution as distinct validation stages for future clients; a client registration alone is not proof of end-to-end operation. Do not infer compatibility for Gemini or other untested clients.
 
+
+## Cross-provider client validation — 2026-11-25
+
+Two additional client paths completed authenticated, read-only use of the deployed Homelab Management MCP:
+
+- **Google Antigravity CLI:** Signed in to Antigravity, authenticated to the Homelab MCP through the Webtools authorization flow, discovered and called MCP tools, and produced a homelab status report. The observed workflow included capabilities/inventory retrieval, targeted Docker container statistics, and bounded logs for selected containers.
+- **Claude Code using OpenRouter:** Launched Claude Code with the Anthropic-compatible OpenRouter endpoint and the `openrouter/free` model. It authenticated to the MCP, called the Proxmox and Docker inventory and diagnostic tools, and produced a read-only homelab report. The OpenRouter model API credential and the Webtools OAuth credentials used for MCP access are separate authentication concerns; never put either credential in repository configuration or examples.
+
+These validations establish that the same deployed MCP can be used from additional AI client/provider combinations. They do not establish that every model routed through OpenRouter behaves identically, or that a future client version will remain compatible.
+
+**Unresolved report discrepancy:** The Antigravity-generated report counted 44 Docker containers (35 running, 9 exited), while the Claude Code/OpenRouter report counted 58. The reports were generated close together, but their aggregate totals do not agree. Treat both as client-generated observations, not as a reconciled fleet baseline. Compare the raw `get_docker_inventory` responses and per-host records before documenting a canonical total or attributing the difference to inventory changes.
+
+Both exercises were read-only. Report generation remains client-side and is not an MCP server feature.
 
 ## Cross-client AI operating and reporting guidance — documented
 

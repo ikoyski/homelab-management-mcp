@@ -24,6 +24,7 @@ The following combinations have completed live, read-only MCP tool execution aga
 |---|---|---|
 | Claude Code | Claude-hosted model path | Proxmox/Docker inventory, bounded logs, and client-side reporting |
 | Claude Code | OpenRouter via `https://openrouter.ai/api`, model `openrouter/free` | MCP authentication, inventory/diagnostics, and client-side reporting |
+| Claude Code | Model argument `gemma4:31b-cloud` (provider/backend not identified in the recorded command) | Tool discovery, three MCP calls for a read-only status request, and client-side reporting |
 | Google Antigravity CLI | Antigravity account with Gemini model | MCP authentication, capabilities/inventory, targeted Docker stats/logs, and client-side reporting |
 | Gemini | Google Gemini | Proxmox/Docker inventory, host-scoped filter checks, bounded logs, and client-side reporting |
 | Grok | xAI Grok | Proxmox/Docker inventory, bounded logs, and client-side reporting |
@@ -50,6 +51,16 @@ docker exec \
 ```
 
 Replace the container placeholder with the local container name. Do not put a real token in shell history, compose files, repository files, screenshots, or prompts. Use a secret manager or another protected method to provide the token to the process.
+
+### Claude Code using `gemma4:31b-cloud`
+
+A separate test used the following command inside the existing Claude Code container:
+
+```bash
+docker exec -it <claude-code-container> claude --model gemma4:31b-cloud
+```
+
+Claude Code listed the Homelab MCP tools and then returned a detailed read-only homelab status report after three MCP calls. The command shown here identifies the model argument but does not show the API base URL, provider, or backend configuration. Do not infer that this run used OpenRouter, Ollama, or another specific provider without checking the container's effective Claude Code configuration. The model name alone is not an MCP authorization mechanism; Webtools OAuth remains the separate authorization boundary.
 
 ### Google Antigravity CLI
 

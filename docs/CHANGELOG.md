@@ -7,6 +7,7 @@ Notable project changes are recorded here in reverse chronological order. This i
 ### Validated — additional AI client/provider paths
 - Google Antigravity CLI completed Webtools-authenticated access to the deployed Homelab Management MCP, MCP tool execution, inventory review, targeted Docker statistics/log retrieval, and a read-only homelab status report.
 - Claude Code completed a separate successful MCP reporting exercise while using OpenRouter's Anthropic-compatible endpoint and the `openrouter/free` model. Its invocation supplied the OpenRouter token through the runtime environment; no credential is included in repository documentation. OpenRouter model access and Webtools MCP OAuth are separate authentication flows.
+- Claude Code also completed MCP tool discovery and a read-only status report using the model argument `gemma4:31b-cloud`. The recorded invocation was `docker exec -it <claude-code-container> claude --model gemma4:31b-cloud`; it does not disclose the provider endpoint/backend, so the changelog records the model argument only.
 - Both exercises were read-only. They validate the observed client/provider combinations, not every model or future client version.
 - The two generated reports disagreed on the Docker fleet total (44 versus 58 containers) despite being collected close together. This discrepancy is unresolved; neither count is promoted as an authoritative baseline pending comparison of raw inventory responses and per-host records.
 

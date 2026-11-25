@@ -11,7 +11,7 @@
 | Area | Status | Notes |
 |---|---|---|
 | Release 1 — Proxmox inventory | Implemented and deployed | Five MCP tools; authenticated live inventory has been exercised by Claude Code, Grok, and Gemini. |
-| Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox inventory, Docker inventory, targeted logs, and standalone HTML report generation were exercised. Claude Code was also validated using OpenRouter's `openrouter/free` model. |
+| Claude Code client integration | Validated | OAuth, MCP tool discovery, Proxmox/Docker inventory, targeted logs, and read-only reporting were exercised using Claude-hosted models, OpenRouter's `openrouter/free`, and the `gemma4:31b-cloud` model argument. The provider behind the latter invocation is not identified in the recorded command. |
 | Grok client integration | Validated | Proxmox and Docker inventory, targeted logs, and standalone HTML report generation were exercised. |
 | Gemini client integration | Validated | Gemini completed Proxmox/Docker inventory, hostKey filter parity checks, targeted logs, and standalone HTML report generation. |
 | Google Antigravity CLI integration | Validated 2026-11-25 | Completed Webtools-authenticated MCP access, capabilities/inventory retrieval, targeted Docker stats and bounded logs, and a read-only homelab report. |
@@ -123,10 +123,11 @@ Two additional client paths completed authenticated, read-only use of the deploy
 
 - **Google Antigravity CLI:** Signed in to Antigravity, authenticated to the Homelab MCP through the Webtools authorization flow, discovered and called MCP tools, and produced a homelab status report. The observed workflow included capabilities/inventory retrieval, targeted Docker container statistics, and bounded logs for selected containers.
 - **Claude Code using OpenRouter:** Launched Claude Code with the Anthropic-compatible OpenRouter endpoint and the `openrouter/free` model. It authenticated to the MCP, called the Proxmox and Docker inventory and diagnostic tools, and produced a read-only homelab report. The OpenRouter model API credential and the Webtools OAuth credentials used for MCP access are separate authentication concerns; never put either credential in repository configuration or examples.
+- **Claude Code with `gemma4:31b-cloud`:** Ran `docker exec -it <claude-code-container> claude --model gemma4:31b-cloud`. Claude Code listed the Homelab MCP tools, then completed a status request that invoked three MCP calls and returned a detailed read-only homelab summary. The displayed command does not specify the provider endpoint or backend, so this records the exact model argument without attributing it to OpenRouter, Ollama, or another provider.
 
 These validations establish that the same deployed MCP can be used from additional AI client/provider combinations. They do not establish that every model routed through OpenRouter behaves identically, or that a future client version will remain compatible.
 
-**Unresolved report discrepancy:** The Antigravity-generated report counted 44 Docker containers (35 running, 9 exited), while the Claude Code/OpenRouter report counted 58. The reports were generated close together, but their aggregate totals do not agree. Treat both as client-generated observations, not as a reconciled fleet baseline. Compare the raw `get_docker_inventory` responses and per-host records before documenting a canonical total or attributing the difference to inventory changes.
+**Unresolved report discrepancy:** The Antigravity-generated report counted 44 Docker containers (35 running, 9 exited), while the Claude Code/OpenRouter report counted 58. The reports were generated close together, but their aggregate totals do not agree. Treat both as client-generated observations, not as a reconciled fleet baseline. Compare the raw `get_docker_inventory` responses and per-host records before documenting a canonical total or attributing the difference to inventory changes. The `gemma4:31b-cloud` report did not provide a comparable aggregate count, so it does not resolve this discrepancy.
 
 Both exercises were read-only. Report generation remains client-side and is not an MCP server feature.
 
